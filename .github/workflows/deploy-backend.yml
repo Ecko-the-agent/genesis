@@ -32,7 +32,7 @@ jobs:
         gcloud functions deploy ecko-http-function \
           --gen2 \
           --region=europe-west8 `# Επίλεξε μια περιοχή κοντά σου, π.χ., europe-west1 (Belgium)` \
-          --runtime=python311 `# Έλεγξε την τελευταία υποστηριζόμενη έκδοση Python` \
+          --runtime=python312 `# Έλεγξε την τελευταία υποστηριζόμενη έκδοση Python` \
           --source=./backend \
           --entry-point=ecko_main \
           --trigger-http \
