@@ -1,4 +1,4 @@
-name: Deploy Ecko Backend to GCF (Vertex AI SDK) # Αλλαγή ονόματος για σαφήνεια
+name: Deploy Ecko Backend to GCF (Vertex AI SDK)
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # Για την πιστοποίηση στο GCP
+      id-token: 'write' # For GCP authentication
 
     steps:
     - name: Checkout code
@@ -23,37 +23,29 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v2'
       with:
-        # Χρησιμοποιούμε το κλειδί του Service Account που έχει τα δικαιώματα (π.χ., aiplatform.user)
         credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    # ---- ΑΦΑΙΡΕΘΗΚΕ ΤΟ ΒΗΜΑ ΓΙΑ ΤΟ GEMINI API KEY ----
-    # - name: Get Gemini API Key from Secret Manager ...
-
     - name: Deploy Cloud Function
-      # ---- ΔΕΝ ΧΡΕΙΑΖΕΤΑΙ ΠΛΕΟΝ ΤΟ env ΜΕ ΤΟ ΚΛΕΙΔΙ ----
       run: |
         gcloud functions deploy ecko-http-function \
           --gen2 \
-          --region=europe-west1 \
-          --runtime=python311 \
-          --source=./backend \
-          --entry-point=ecko_main \
+          --region="europe-west1" \
+          --runtime="python311" \
+          --source="./backend" \
+          --entry-point="ecko_main" \
           --trigger-http \
           --allow-unauthenticated \
-          # --- ΑΦΑΙΡΕΘΗΚΕ ΤΟ GEMINI_API_KEY ΑΠΟ ΤΙΣ ΜΕΤΑΒΛΗΤΕΣ ΠΕΡΙΒΑΛΛΟΝΤΟΣ ---
-          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }} \
+          --set-env-vars="GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
           --max-instances=1
+      # ΣΗΜΕΙΩΣΗ: Έβαλα εισαγωγικά γύρω από τις τιμές των παραμέτρων
+      # και αφαίρεσα το περιττό σχόλιο που μπορεί να μπέρδευε τη συνέχεια γραμμής.
 
-    # ---- Βήμα για το URL (παραμένει ίδιο) ----
     - name: Get Function URL
       id: get_url
       run: |
         URL=$(gcloud functions describe ecko-http-function --gen2 --region=europe-west1 --format='value(serviceConfig.uri)')
         echo "Function URL: $URL"
         echo "url=$URL" >> $GITHUB_OUTPUT
-
-    # Προαιρετικό βήμα ενημέρωσης frontend (παραμένει ίδιο, αλλά σχολιασμένο)
-    # ...
