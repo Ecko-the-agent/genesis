@@ -11,8 +11,9 @@ print("--- Python script starting (Vertex AI SDK - History Fix - Top Level) ---"
 
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
-REGION = "us-central1"
-MODEL_NAME = "gemini-2.5-flash-preview-04-17" # <-- ΤΟ ΣΩΣΤΟ PREVIEW ΜΟΝΤΕΛΟ
+REGION = "us-central1" # <-- Σιγουρέψου ότι είναι us-central1
+MODEL_NAME = "gemini-2.5-flash-preview-04-17" # <-- Βάλε το μοντέλο που θέλεις (π.χ., το flash-preview που είναι μόνο us-central1)
+# ή MODEL_NAME = "gemini-1.5-pro-preview-03-25" (Αυτό είναι global, θα έπρεπε να δουλεύει κι εδώ)
 
 
 CONVERSATION_COLLECTION = 'conversations'
@@ -43,7 +44,7 @@ except Exception as e:
 if not initialization_error_msg:
     try:
         print(f"Attempting to initialize Vertex AI for project {PROJECT_ID} in region {REGION}...")
-        vertexai.init(project=PROJECT_ID, location=REGION)
+        vertexai.init(project=PROJECT_ID, location=REGION) # <-- Η αρχικοποίηση χρησιμοποιεί το REGION
         print("Vertex AI base initialized. Getting GenerativeModel...")
         model = GenerativeModel(MODEL_NAME)
         print(f"Vertex AI GenerativeModel '{MODEL_NAME}' obtained successfully.")
