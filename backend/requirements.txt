@@ -1,6 +1,6 @@
-Flask>=2.0.0
-functions-framework>=3.0.0
-google-generativeai>=0.3.0
-google-cloud-secretmanager==2.18.0
+Flask
+functions-framework
+google-generativeai
+google-cloud-secretmanager
 # google-cloud-firestore θα προστεθεί αργότερα
 # GitPython θα προστεθεί αργότερα
