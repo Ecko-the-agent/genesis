@@ -2,7 +2,7 @@
 // Αντικατάστησε με το URL που θα σου δώσει η Google Cloud Function μετά το deploy
 // ΠΡΟΣΟΧΗ: Θα χρειαστεί να το ενημερώσεις ΑΦΟΥ γίνει deploy η function!
 // Προς το παρόν, άφησέ το κενό ή ένα placeholder.
-const ECKO_BACKEND_URL = 'YOUR_FUNCTION_URL_HERE'; // <--- ΘΑ ΑΛΛΑΞΕΙ ΜΕΤΑ!
+const ECKO_BACKEND_URL = 'https://ecko-http-function-p2bsy3odya-ew.a.run.app/'; // <--- ΘΑ ΑΛΛΑΞΕΙ ΜΕΤΑ!
 
 const chatbox = document.getElementById('chatbox');
 const userInput = document.getElementById('userInput');
