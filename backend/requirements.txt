@@ -1,5 +1,5 @@
-functions-framework>=3.0.0
-google-cloud-firestore>=2.11.0
-google-cloud-aiplatform>=1.25.0
-# vertexai SDK περιλαμβάνεται στο google-cloud-aiplatform
+functions-framework
+google-cloud-firestore
+google-cloud-aiplatform
 pytz
+GitPython>=3.1.0 # Πρόσθεσε αυτή τη γραμμή

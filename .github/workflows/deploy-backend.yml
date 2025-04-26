@@ -14,13 +14,12 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # Might still be needed by gcloud internally, doesn't hurt to leave it
+      id-token: 'write' # Required for SA key auth
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Use only Service Account Key for authentication
     - name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v2'
       with:
@@ -28,30 +27,44 @@ jobs:
 
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
-      with:
-        project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+    # ---- Διάβασε και Καθάρισε το GitHub PAT Secret ----
+    - name: Get and Clean GitHub PAT Secret
+      id: get_github_pat
+      run: |
+        # Διαβάζει το περιεχόμενο του secret
+        RAW_PAT=$(gcloud secrets versions access latest --secret="${{ secrets.GCP_GITHUB_PAT_SECRET_NAME }}" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
+        echo "Fetched raw PAT secret (masked)"
+        # Καθαρίζει τυχόν artifacts από echo -n (' στην αρχή, ' \r στο τέλος) - Προσαρμοσμένο για Windows echo
+        CLEANED_PAT=$(echo "$RAW_PAT" | sed "s/^'//; s/'\s*$//")
+        echo "Cleaned PAT (masked)"
+        # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
+        # Χρησιμοποίησε το ::add-mask:: για να κρύψεις την τιμή από τα logs
+        echo "::add-mask::$CLEANED_PAT"
+        echo "PAT_VALUE=$CLEANED_PAT" >> $GITHUB_ENV
 
     # ---- Deploy ----
     - name: Deploy Cloud Function
+      env:
+          # Πέρνα την καθαρισμένη τιμή του PAT που διαβάστηκε
+          CLEAN_PAT: ${{ env.PAT_VALUE }}
       run: |
-        # No need to set API keys as env vars when using ADC (which we are not using for the function's runtime)
-        # We also removed the code reading the keys, so no need to pass them here.
         gcloud functions deploy ecko-http-function \
           --gen2 \
-          --region=us-central1 \
+          --region=us-central1 `# Παραμένει us-central1` \
           --runtime=python311 \
-          --memory=512MiB \
           --source=./backend \
           --entry-point=ecko_main \
           --trigger-http \
           --allow-unauthenticated \
-          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }} \
+          --memory=512MiB `# Διατήρηση αυξημένης μνήμης` \
+          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GITHUB_PAT_VALUE="${CLEAN_PAT}" `# Πέρνα το PAT` \
           --max-instances=1
 
-    # ---- Get URL ----
+    # ---- Βήμα για το URL (παραμένει ίδιο) ----
     - name: Get Function URL
       id: get_url
       run: |
         URL=$(gcloud functions describe ecko-http-function --gen2 --region=us-central1 --format='value(serviceConfig.uri)')
         echo "Function URL: $URL"
-        echo "url=$URL" >> $GITHUB_OUTPUT
+        # Δεν χρειάζεται να το βάζουμε στο GITHUB_OUTPUT πλέον, αφού δεν ενημερώνουμε το frontend script αυτόματα
