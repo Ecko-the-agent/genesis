@@ -1,3 +1,5 @@
-Flask
-Flask-Cors
 functions-framework
+# Flask <---- ΑΦΑΙΡΕΘΗΚΕ/ΣΧΟΛΙΑΣΤΗΚΕ
+# Flask-Cors <---- ΑΦΑΙΡΕΘΗΚΕ/ΣΧΟΛΙΑΣΤΗΚΕ
+# google-generativeai <---- Προσωρινά αφαιρέθηκε για το τεστ
+# google-cloud-firestore <---- Προσωρινά αφαιρέθηκε για το τεστ

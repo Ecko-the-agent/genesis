@@ -1,59 +1,78 @@
 import functions_framework
-from flask import Flask, request, jsonify, make_response
-from flask_cors import CORS
+import json # Για χειρισμό JSON
 import os
 
-print("--- Python script starting (Top Level) ---")
+# Headers για τις απαντήσεις CORS
+# ΣΗΜΑΝΤΙΚΟ: Αν το frontend σου αλλάξει domain, πρέπει να αλλάξεις κι αυτό!
+CORS_HEADERS = {
+    'Access-Control-Allow-Origin': 'https://ecko-the-agent.github.io',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '3600' # Πόσο χρόνο ο browser μπορεί να κάνει cache το OPTIONS response
+}
 
-# --- Configuration ---
-ALLOWED_ORIGIN = "https://ecko-the-agent.github.io"
-
-# --- Flask App ---
-app = Flask(__name__)
-print("--- Flask app instance created ---")
-# Apply CORS specifically
-try:
-    CORS(app, resources={r"/ecko": {"origins": ALLOWED_ORIGIN}}, supports_credentials=False)
-    print("--- CORS configured successfully ---")
-except Exception as cors_ex:
-    print(f"--- ERROR configuring CORS: {cors_ex} ---")
-
-
-# Απλή διαδρομή για έλεγχο - ΔΕΝ χρησιμοποιεί clients ή request data
-@app.route('/ecko', methods=['POST', 'OPTIONS'])
-def handle_ecko_request():
-    print(f"--- Entered handle_ecko_request route, Method: {request.method} ---") # Log εισόδου στη route
-
-    # Το Flask-Cors θα χειριστεί το OPTIONS αυτόματα
-
-    if request.method == 'POST':
-        print("--- Processing POST request (Simplified) ---")
-        try:
-            # Απλά επιστρέφουμε μια σταθερή απάντηση
-            response_data = {"response": "Ecko Test OK"}
-            print(f"--- Sending hardcoded response: {response_data} ---")
-            # Το Flask-Cors θα προσθέσει κεφαλίδες εδώ
-            return make_response(jsonify(response_data), 200)
-        except Exception as e:
-            print(f"--- ERROR in POST handler: {e} ---")
-            # Και εδώ θα προσθέσει κεφαλίδες
-            return make_response(jsonify({"error": f"Internal error: {e}"}), 500)
-    else:
-        # Κανονικά δεν θα έπρεπε να φτάσει εδώ για OPTIONS
-        print(f"--- Received non-POST/non-OPTIONS method: {request.method} ---")
-        return make_response(jsonify({"error": "Method not allowed"}), 405)
+print("--- Python script starting (No Flask - Top Level) ---")
 
 # --- GCF Entry Point ---
 @functions_framework.http
 def ecko_main(request):
-    print("--- GCF Entry Point Triggered (ecko_main) ---")
-    try:
-        # Δρομολόγηση στην Flask app
-        return app(request.environ, lambda status, headers: None)
-    except Exception as main_ex:
-        print(f"--- ERROR in ecko_main calling app: {main_ex} ---")
-        # Προσπάθεια επιστροφής γενικού σφάλματος αν η κλήση της app αποτύχει
-        # (Αυτό μπορεί να μην δουλέψει καλά, αλλά το log είναι χρήσιμο)
-        return "Internal Server Error", 500
+    """
+    Χειρίζεται HTTP requests απευθείας, χωρίς Flask.
+    Περιλαμβάνει χειρισμό CORS.
+    """
+    print(f"--- GCF Entry Point Triggered (ecko_main), Method: {request.method} ---")
 
-print("--- Python script finished loading (Bottom Level) ---")
+    # --- Χειρισμός CORS Preflight (OPTIONS) ---
+    if request.method == 'OPTIONS':
+        print("--- Handling OPTIONS request ---")
+        # Στείλε τις κεφαλίδες CORS και μια κενή απάντηση 204 (No Content)
+        # Η tuple μορφή (body, status, headers) είναι ο τρόπος επιστροφής στο functions-framework
+        return ('', 204, CORS_HEADERS)
+
+    # --- Χειρισμός POST Requests ---
+    if request.method == 'POST':
+        print("--- Handling POST request ---")
+
+        # Πρόσθεσε την Allow-Origin κεφαλίδα και στις POST απαντήσεις
+        response_headers = {'Access-Control-Allow-Origin': CORS_HEADERS['Access-Control-Allow-Origin']}
+
+        try:
+            # Πάρε τα δεδομένα JSON από το request body
+            request_json = request.get_json(silent=True)
+            print(f"--- Received JSON data: {request_json} ---")
+
+            if not request_json or 'message' not in request_json:
+                print("--- Error: Missing 'message' in JSON body ---")
+                error_response = json.dumps({"error": "Missing 'message' in request body"})
+                # Πρόσθεσε Content-Type και επέστρεψε 400
+                response_headers['Content-Type'] = 'application/json'
+                return (error_response, 400, response_headers)
+
+            user_message = request_json['message']
+            print(f"--- User message: {user_message} ---")
+
+            # --- ΕΔΩ ΘΑ ΜΠΕΙ Η ΛΟΓΙΚΗ ΤΟΥ ECKO (Firestore, Gemini κλπ.) ---
+            # Προς το παρόν, απλά επιστρέφουμε μια σταθερή απάντηση
+            ecko_response_text = f"Ecko (No Flask) received: '{user_message}' - Test OK"
+            # --------------------------------------------------------------
+
+            print(f"--- Sending response: {ecko_response_text} ---")
+            response_data = json.dumps({"response": ecko_response_text})
+            # Πρόσθεσε Content-Type και επέστρεψε 200
+            response_headers['Content-Type'] = 'application/json'
+            return (response_data, 200, response_headers)
+
+        except Exception as e:
+            print(f"--- ERROR processing POST request: {e} ---")
+            error_response = json.dumps({"error": f"An internal error occurred: {e}"})
+            # Πρόσθεσε Content-Type και επέστρεψε 500
+            response_headers['Content-Type'] = 'application/json'
+            return (error_response, 500, response_headers)
+
+    # --- Άλλες μέθοδοι (π.χ., GET) δεν επιτρέπονται ---
+    else:
+        print(f"--- Method Not Allowed: {request.method} ---")
+        # Πρόσθεσε τις βασικές CORS headers και εδώ για συνέπεια
+        return ('Method Not Allowed', 405, CORS_HEADERS)
+
+print("--- Python script finished loading (No Flask - Bottom Level) ---")
