@@ -2,7 +2,7 @@ import functions_framework
 from flask import Flask, request, jsonify, make_response
 import google.generativeai as genai
 import os
-# import google.cloud.secretmanager # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
+import google.cloud.secretmanager # <-- ΞΕΣΧΟΛΙΑΣΕ
 
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
@@ -10,26 +10,26 @@ GEMINI_API_KEY_SECRET_NAME = os.environ.get("GEMINI_API_KEY_SECRET_NAME", "gemin
 
 # --- Initialize Clients ---
 llm_model = None
-# try: # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     # Initialize Secret Manager client # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     secret_client = google.cloud.secretmanager.SecretManagerServiceClient() # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     # Build the secret version name # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     secret_version_name = f"projects/{PROJECT_ID}/secrets/{GEMINI_API_KEY_SECRET_NAME}/versions/latest" # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     # Access the secret version # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     response = secret_client.access_secret_version(request={"name": secret_version_name}) # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     gemini_api_key = response.payload.data.decode("UTF-8") # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
+try: # <-- ΞΕΣΧΟΛΙΑΣΕ
+    # Initialize Secret Manager client # <-- ΞΕΣΧΟΛΙΑΣΕ
+    secret_client = google.cloud.secretmanager.SecretManagerServiceClient() # <-- ΞΕΣΧΟΛΙΑΣΕ
+    # Build the secret version name # <-- ΞΕΣΧΟΛΙΑΣΕ
+    secret_version_name = f"projects/{PROJECT_ID}/secrets/{GEMINI_API_KEY_SECRET_NAME}/versions/latest" # <-- ΞΕΣΧΟΛΙΑΣΕ
+    # Access the secret version # <-- ΞΕΣΧΟΛΙΑΣΕ
+    response = secret_client.access_secret_version(request={"name": secret_version_name}) # <-- ΞΕΣΧΟΛΙΑΣΕ
+    gemini_api_key = response.payload.data.decode("UTF-8") # <-- ΞΕΣΧΟΛΙΑΣΕ
 
-#     if gemini_api_key: # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#         genai.configure(api_key=gemini_api_key) # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#         llm_model = genai.GenerativeModel('gemini-1.5-flash') # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#         print("Gemini API Key configured successfully via Secret Manager.") # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     else: # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#         print("Gemini API Key secret found but was empty.") # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-# except Exception as e: # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     print(f"Error configuring Gemini API Key from Secret Manager: {e}") # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
-#     print("LLM will not be available.") # <-- ΚΑΝΕ ΤΗΝ ΣΧΟΛΙΟ
+    if gemini_api_key: # <-- ΞΕΣΧΟΛΙΑΣΕ
+        genai.configure(api_key=gemini_api_key) # <-- ΞΕΣΧΟΛΙΑΣΕ
+        llm_model = genai.GenerativeModel('gemini-1.5-flash') # <-- ΞΕΣΧΟΛΙΑΣΕ
+        print("Gemini API Key configured successfully via Secret Manager.") # <-- ΞΕΣΧΟΛΙΑΣΕ
+    else: # <-- ΞΕΣΧΟΛΙΑΣΕ
+        print("Gemini API Key secret found but was empty.") # <-- ΞΕΣΧΟΛΙΑΣΕ
+except Exception as e: # <-- ΞΕΣΧΟΛΙΑΣΕ
+    print(f"Error configuring Gemini API Key from Secret Manager: {e}") # <-- ΞΕΣΧΟΛΙΑΣΕ
+    print("LLM will not be available.") # <-- ΞΕΣΧΟΛΙΑΣΕ
 
-print("LLM is currently DISABLED because Secret Manager is commented out for testing.") # Πρόσθεσε αυτή τη γραμμή για να ξέρουμε ότι τρέχει χωρίς LLM
+# print("LLM is currently DISABLED because Secret Manager is commented out for testing.") # <-- ΔΙΑΓΡΑΨΕ ή ΚΑΝΕ ΣΧΟΛΙΟ ΑΥΤΗ ΤΗ ΓΡΑΜΜΗ
 
 
 # --- Flask App (for GCF HTTP Trigger) ---
