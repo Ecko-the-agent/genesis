@@ -51,7 +51,7 @@ jobs:
           --entry-point=ecko_main \
           --trigger-http \
           --allow-unauthenticated \
-          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GEMINI_API_KEY=$FETCHED_GEMINI_KEY `# ΑΛΛΑΓΗ ΕΔΩ: Περνάμε την τιμή, όχι το όνομα του secret` \
+         --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GEMINI_API_KEY="${FETCHED_GEMINI_KEY}" `# ΔΙΟΡΘΩΣΗ: Προσθήκη εισαγωγικών γύρω από την τιμή` \
           --max-instances=1
 
     # ---- Βήμα για το URL (παραμένει ίδιο) ----
