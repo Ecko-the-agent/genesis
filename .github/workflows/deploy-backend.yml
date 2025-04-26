@@ -1,4 +1,4 @@
-name: Deploy Ecko Backend to GCF (Vertex AI SDK)
+name: Deploy Ecko Backend to GCF
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # For GCP authentication
+      id-token: 'write'
 
     steps:
     - name: Checkout code
@@ -28,22 +28,51 @@ jobs:
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    - name: Deploy Cloud Function
+    # ---- Διάβασε το Gemini Key (παραμένει ίδιο) ----
+    - name: Get Gemini API Key from Secret Manager
+      id: get_gemini_key
       run: |
+        # Χρησιμοποίησε --format='get(payload.data)' για να πάρεις μόνο τα data
+        SECRET_VALUE=$(gcloud secrets versions access latest --secret="${{ secrets.GCP_GEMINI_API_KEY_SECRET_NAME }}" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
+        echo "Fetched Gemini secret value (masked)"
+        # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
+        echo "GEMINI_KEY_VALUE=$SECRET_VALUE" >> $GITHUB_ENV
+
+    # ---- ΝΕΟ ΒΗΜΑ: Διάβασε το GitHub PAT ----
+    - name: Get GitHub PAT from Secret Manager
+      id: get_github_pat
+      run: |
+        # Χρησιμοποίησε το όνομα του secret από τα GitHub secrets
+        PAT_SECRET_NAME="${{ secrets.GCP_GITHUB_PAT_SECRET_NAME }}"
+        echo "Fetching GitHub PAT from secret: $PAT_SECRET_NAME"
+        # Χρησιμοποίησε --format='get(payload.data)'
+        PAT_VALUE=$(gcloud secrets versions access latest --secret="$PAT_SECRET_NAME" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
+        echo "Fetched GitHub PAT value (masked)"
+        # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
+        echo "GITHUB_PAT_FETCHED_VALUE=$PAT_VALUE" >> $GITHUB_ENV
+
+
+    # ---- Deploy ----
+    - name: Deploy Cloud Function
+      env:
+          # Πέρνα και τα δύο κλειδιά που διαβάστηκαν
+          FETCHED_GEMINI_KEY: ${{ env.GEMINI_KEY_VALUE }}
+          FETCHED_GITHUB_PAT: ${{ env.GITHUB_PAT_FETCHED_VALUE }} # <-- Το νέο PAT
+      run: |
+        # ΠΡΟΣΟΧΗ στα εισαγωγικά γύρω από τις τιμές των env vars!
         gcloud functions deploy ecko-http-function \
           --gen2 \
-          --region="us-central1" \
-          --runtime="python311" \
-          --source="./backend" \
-          --entry-point="ecko_main" \
+          --region=us-central1 \
+          --runtime=python311 \
+          --memory=512MiB \
+          --source=./backend \
+          --entry-point=ecko_main \
           --trigger-http \
           --allow-unauthenticated \
-          --set-env-vars="GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
-          --max-instances=1 \
-          --memory=512MiB # <--- ΠΡΟΣΘΗΚΗ ΓΙΑ ΑΥΞΗΣΗ ΜΝΗΜΗΣ
-      # ΣΗΜΕΙΩΣΗ: Έβαλα εισαγωγικά γύρω από τις τιμές των παραμέτρων
-      # και αφαίρεσα το περιττό σχόλιο που μπορεί να μπέρδευε τη συνέχεια γραμμής.
+          --set-env-vars="GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GEMINI_API_KEY=${FETCHED_GEMINI_KEY},GITHUB_PAT_VALUE=${FETCHED_GITHUB_PAT}" `# <-- Προσθήκη GITHUB_PAT_VALUE` \
+          --max-instances=1
 
+    # ---- Βήμα για το URL (παραμένει ίδιο) ----
     - name: Get Function URL
       id: get_url
       run: |

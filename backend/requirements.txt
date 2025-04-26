@@ -1,5 +1,5 @@
 functions-framework>=3.0.0
-google-cloud-firestore>=2.11.0 # Καλό είναι να βάζουμε κάποιες εκδόσεις
-google-cloud-aiplatform>=1.25.0 # (Vertex AI SDK)
-GitPython>=3.1.0 # <-- Προσθήκη για Git
-google-cloud-secretmanager>=2.16.0 # <-- Προσθήκη για PAT
+google-cloud-firestore>=2.11.0
+google-cloud-aiplatform>=1.25.0
+GitPython>=3.1.0
+# google-cloud-secretmanager>=2.16.0 # <-- Αφαίρεση ή σχόλιο
