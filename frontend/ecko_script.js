@@ -1,62 +1,95 @@
 // --- CONFIGURATION ---
-// Αντικατάστησε με το URL που θα σου δώσει η Google Cloud Function μετά το deploy
-// ΠΡΟΣΟΧΗ: Θα χρειαστεί να το ενημερώσεις ΑΦΟΥ γίνει deploy η function!
-// Προς το παρόν, άφησέ το κενό ή ένα placeholder.
-const ECKO_BACKEND_URL = 'https://ecko-http-function-p2bsy3odya-ew.a.run.app'; // <--- ΘΑ ΑΛΛΑΞΕΙ ΜΕΤΑ!
+// Το σωστό URL της Cloud Function σου
+const ECKO_BACKEND_URL = 'https://ecko-http-function-p2bsy3odya-ew.a.run.app';
 
+// --- DOM Elements ---
 const chatbox = document.getElementById('chatbox');
 const userInput = document.getElementById('userInput');
 const sendButton = document.getElementById('sendButton');
 const loadingIndicator = document.getElementById('loading');
 
+// --- Functions ---
+
+/**
+ * Προσθέτει ένα μήνυμα στο chatbox.
+ * @param {string} sender - Ο αποστολέας ('Εσύ', 'Ecko', 'System').
+ * @param {string} message - Το περιεχόμενο του μηνύματος.
+ */
 function addMessage(sender, message) {
     const p = document.createElement('p');
-    // Basic sanitation to prevent HTML injection from response
+    // Απλή απολύμανση για να αποφευχθεί βασική εισαγωγή HTML από την απάντηση
+    // Αντικαθιστά < με < και > με >
     const sanitizedMessage = message.replace(/</g, "<").replace(/>/g, ">");
     p.innerHTML = `<strong>${sender}:</strong> ${sanitizedMessage}`;
     chatbox.appendChild(p);
-    chatbox.scrollTop = chatbox.scrollHeight; // Scroll to bottom
+    chatbox.scrollTop = chatbox.scrollHeight; // Κύλιση προς τα κάτω
 }
 
+/**
+ * Στέλνει το μήνυμα του χρήστη στο backend και εμφανίζει την απάντηση.
+ */
 async function sendMessage() {
     const message = userInput.value.trim();
-    if (!message) return;
+    if (!message) return; // Αν το μήνυμα είναι κενό, μην κάνεις τίποτα
 
-    // Ο ΕΛΕΓΧΟΣ IF ΕΧΕΙ ΑΦΑΙΡΕΘΕΙ ΑΠΟ ΕΔΩ
+    // --- ΑΦΑΙΡΕΘΗΚΕ Ο ΠΕΡΙΤΤΟΣ ΕΛΕΓΧΟΣ IF ΑΠΟ ΕΔΩ ---
 
-    addMessage('Εσύ', message);
-    userInput.value = '';
-    sendButton.disabled = true;
-    loadingIndicator.style.display = 'block';
+    addMessage('Εσύ', message); // Εμφάνισε το μήνυμα του χρήστη
+    userInput.value = ''; // Καθάρισε το πεδίο εισαγωγής
+    sendButton.disabled = true; // Απενεργοποίησε το κουμπί αποστολής
+    loadingIndicator.style.display = 'block'; // Εμφάνισε την ένδειξη φόρτωσης
 
     try {
-        const response = await fetch(ECKO_BACKEND_URL, { // Τώρα θα εκτελεστεί κανονικά
+        // Στείλε το αίτημα στο backend
+        const response = await fetch(ECKO_BACKEND_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
+            // Στείλε το μήνυμα μέσα σε ένα JSON αντικείμενο
             body: JSON.stringify({ message: message }),
         });
 
+        // Έλεγχος αν η απάντηση HTTP ήταν επιτυχής (π.χ. 200 OK)
         if (!response.ok) {
-            // Handling non-2xx responses, including potential CORS issues if they reappear
-            // We might need more specific error handling based on status code later
+            // Αν όχι, δημιούργησε ένα σφάλμα με την κατάσταση HTTP
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
+        // Αν η απάντηση ήταν ΟΚ, πάρε τα δεδομένα JSON
         const data = await response.json();
-        addMessage('Ecko', data.response);
+
+        // Έλεγχος αν υπάρχει η απάντηση μέσα στα δεδομένα
+        if (data && data.response) {
+           addMessage('Ecko', data.response); // Εμφάνισε την απάντηση του Ecko
+        } else {
+           addMessage('System', 'Λήφθηκε μη αναμενόμενη απάντηση από τον Ecko.');
+        }
 
     } catch (error) {
+        // Αν συνέβη οποιοδήποτε σφάλμα (δικτύου ή επεξεργασίας)
         console.error('Error sending message:', error);
-        // Check if the error is a TypeError (often network/CORS related)
-        if (error instanceof TypeError) {
-             addMessage('System', `Σφάλμα δικτύου ή CORS κατά την επικοινωνία με τον Ecko. Βεβαιωθείτε ότι το backend URL (${ECKO_BACKEND_URL}) είναι σωστό και προσβάσιμο.`);
-        } else {
-             addMessage('System', `Σφάλμα επικοινωνίας με τον Ecko: ${error.message}`);
-        }
+        // Εμφάνισε ένα μήνυμα σφάλματος στο chatbox
+        addMessage('System', `Σφάλμα επικοινωνίας με τον Ecko: ${error.message}`);
     } finally {
-        sendButton.disabled = false;
-        loadingIndicator.style.display = 'none';
+        // Αυτό εκτελείται ΠΑΝΤΑ, είτε με επιτυχία είτε με σφάλμα
+        sendButton.disabled = false; // Ενεργοποίησε ξανά το κουμπί
+        loadingIndicator.style.display = 'none'; // Κρύψε την ένδειξη φόρτωσης
     }
 }
+
+// --- Event Listeners ---
+
+// Επιτρέπει την αποστολή μηνύματος πατώντας το Enter στο πεδίο εισαγωγής
+userInput.addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// Προσθήκη event listener και στο κουμπί (παρόλο που υπάρχει και το onclick στο HTML)
+// για καλή πρακτική, αν και το onclick θα δουλέψει.
+// sendButton.addEventListener('click', sendMessage);
+
+// Αρχικό μήνυμα καλωσορίσματος (προαιρετικό, μπορεί να μπει και στο HTML)
+// addMessage('System', 'Έτοιμος για εντολές.');
