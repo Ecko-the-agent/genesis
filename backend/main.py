@@ -9,11 +9,12 @@ import json
 import git # Για GitPython
 import tempfile # Για προσωρινό φάκελο
 import logging # Για καλύτερο logging
+import re # <-- ΝΕΑ ΕΙΣΑΓΩΓΗ ΓΙΑ REGULAR EXPRESSIONS
 
 # --- Configuration ---
 PROJECT_ID = "projectgenesis-457923"
 REGION = "us-central1" # Η περιοχή όπου τρέχει η function και το Vertex AI
-MODEL_NAME = "gemini-2.5-flash-preview-04-17" # Το μοντέλο που χρησιμοποιούμε (διορθωμένο!)
+MODEL_NAME = "gemini-1.5-flash-preview-0417" # Το μοντέλο που χρησιμοποιούμε
 FIRESTORE_COLLECTION = "conversations"
 CONVERSATION_DOC_ID = "main_chat_history"
 GITHUB_REPO_URL_TEMPLATE = "https://{pat}@github.com/Ecko-the-agent/genesis.git" # Template for repo URL with PAT
@@ -101,13 +102,30 @@ def add_to_conversation_history(sender, message):
 # --- Self-Modification Helper Functions ---
 
 def get_github_pat():
-    """Retrieves the GitHub PAT from the environment variable."""
-    pat = os.environ.get("GITHUB_PAT_VALUE")
-    if not pat:
+    """Retrieves the GitHub PAT from the environment variable and cleans it."""
+    raw_pat = os.environ.get("GITHUB_PAT_VALUE")
+    if not raw_pat:
         logging.error("GITHUB_PAT_VALUE environment variable not found.")
         return None
-    logging.info("Successfully retrieved GitHub PAT from environment variable.")
-    return pat
+    # Log a masked version for debugging length/presence without exposing full PAT
+    logging.info(f"Retrieved raw PAT from environment variable (masked): '{raw_pat[:5]}...{raw_pat[-5:]}'. Length: {len(raw_pat)}")
+
+    # --- ΝΕΑ ΛΟΓΙΚΗ ΚΑΘΑΡΙΣΜΟΥ ---
+    # Χρησιμοποίησε regex για να βρεις το πρώτο 'ghp_' και να πάρεις ό,τι ακολουθεί
+    # που είναι γράμμα, αριθμός ή κάτω παύλα.
+    match = re.search(r'(ghp_[a-zA-Z0-9_]+)', raw_pat)
+    if match:
+        cleaned_pat = match.group(1)
+        logging.info(f"Cleaned PAT successfully using regex: '{cleaned_pat[:5]}...{cleaned_pat[-5:]}'. Length: {len(cleaned_pat)}")
+        # Log a warning if cleaning actually changed something
+        if cleaned_pat != raw_pat.strip(): # Compare with stripped raw value
+             logging.warning(f"Raw PAT needed cleaning.")
+        return cleaned_pat
+    else:
+        # Fallback αν το regex δεν βρει κάτι που μοιάζει με PAT (π.χ., δεν ξεκινάει με ghp_)
+        logging.error("Could not find standard PAT format (ghp_...) using regex in the environment variable value.")
+        # Επιστρέφουμε None γιατί δεν μπορούμε να είμαστε σίγουροι ότι είναι έγκυρο PAT
+        return None
 
 def generate_modification_plan(user_request):
     """Uses the LLM to generate a JSON plan for code modification."""
@@ -194,8 +212,6 @@ def execute_code_modification(plan, pat):
                 logging.warning(f"Skipping invalid plan item: {item}")
                 continue
 
-            # Ensure file path uses correct OS separators (though git usually handles it)
-            # file_path = os.path.join(repo_dir, *file_path_str.split('/')) # Less reliable if path starts with /
             # Construct absolute path safely
             target_path = os.path.abspath(os.path.join(repo_dir, file_path_str))
 
@@ -321,9 +337,9 @@ def ecko_main(request):
                 modification_request = user_message[len("ecko, modify code:"):].strip()
                 logging.info(f"Processing self-modification request: {modification_request}")
 
-                pat = get_github_pat()
+                pat = get_github_pat() # <-- Η συνάρτηση τώρα καθαρίζει το PAT
                 if not pat:
-                    ecko_response = "Error: Cannot perform modification, GitHub PAT is not configured correctly."
+                    ecko_response = "Error: Cannot perform modification, GitHub PAT is not configured correctly or could not be cleaned."
                     status_code = 500
                 else:
                     plan = generate_modification_plan(modification_request)

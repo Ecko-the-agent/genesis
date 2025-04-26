@@ -28,34 +28,22 @@ jobs:
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    # ---- Διάβασε και Καθάρισε το GitHub PAT Secret ----
-    - name: Get and Clean GitHub PAT Secret
+    # ---- Διαβάζει το GitHub PAT Secret (ΧΩΡΙΣ ΚΑΘΑΡΙΣΜΟ) ----
+    - name: Get GitHub PAT Secret
       id: get_github_pat
       run: |
-        # Διαβάζει το περιεχόμενο του secret
+        # Διαβάζει το περιεχόμενο του secret - ΧΩΡΙΣ sed
         RAW_PAT=$(gcloud secrets versions access latest --secret="${{ secrets.GCP_GITHUB_PAT_SECRET_NAME }}" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
         echo "Fetched raw PAT secret (masked)"
-        # Καθαρίζει:
-        # 1. Οτιδήποτε μη-αλφαριθμητικό ή _ στην αρχή (πιάνει το -n ', κενά κλπ)
-        # 2. Οτιδήποτε μη-αλφαριθμητικό ή _ στο τέλος (πιάνει τυχόν ', \r, κενά κλπ)
-        CLEANED_PAT=$(echo "$RAW_PAT" | sed -e 's/^[^a-zA-Z0-9_]*//' -e 's/[^a-zA-Z0-9_]*$//')
-        echo "Cleaned PAT attempt (masked)"
-        # Έλεγχος αν το αποτέλεσμα μοιάζει με PAT (π.χ., ξεκινά με ghp_) - Προαιρετικός αλλά χρήσιμος
-        if [[ "$CLEANED_PAT" == ghp_* ]]; then
-           echo "Cleaned PAT seems valid."
-        else
-           echo "WARNING: Cleaned PAT does not look like a standard GitHub PAT!"
-           # Θα μπορούσαμε να αποτύχουμε το workflow εδώ αν θέλουμε: exit 1
-        fi
-        # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
-        echo "::add-mask::$CLEANED_PAT"
-        echo "PAT_VALUE=$CLEANED_PAT" >> $GITHUB_ENV
+        # Κάνε το διαθέσιμο ως environment variable - ΑΠΕΥΘΕΙΑΣ
+        echo "::add-mask::$RAW_PAT"
+        echo "PAT_VALUE=$RAW_PAT" >> $GITHUB_ENV
 
     # ---- Deploy ----
     - name: Deploy Cloud Function
       env:
-          # Πέρνα την καθαρισμένη τιμή του PAT που διαβάστηκε
-          CLEAN_PAT: ${{ env.PAT_VALUE }}
+          # Πέρνα την ΑΚΑΘΑΡΙΣΤΗ τιμή του PAT που διαβάστηκε
+          RAW_PAT_FROM_WORKFLOW: ${{ env.PAT_VALUE }}
       run: |
         gcloud functions deploy ecko-http-function \
           --gen2 \
@@ -66,7 +54,7 @@ jobs:
           --trigger-http \
           --allow-unauthenticated \
           --memory=512MiB `# Διατήρηση αυξημένης μνήμης` \
-          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GITHUB_PAT_VALUE="${CLEAN_PAT}" `# Πέρνα το PAT` \
+          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GITHUB_PAT_VALUE="${RAW_PAT_FROM_WORKFLOW}" `# Πέρνα το ΑΚΑΘΑΡΙΣΤΟ PAT` \
           --max-instances=1
 
     # ---- Βήμα για το URL (παραμένει ίδιο) ----
@@ -75,4 +63,3 @@ jobs:
       run: |
         URL=$(gcloud functions describe ecko-http-function --gen2 --region=us-central1 --format='value(serviceConfig.uri)')
         echo "Function URL: $URL"
-        # Δεν χρειάζεται να το βάζουμε στο GITHUB_OUTPUT πλέον, αφού δεν ενημερώνουμε το frontend script αυτόματα
