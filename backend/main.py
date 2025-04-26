@@ -17,7 +17,7 @@ import traceback # Για καλύτερο logging σφαλμάτων
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
 REGION = "us-central1"
-MODEL_NAME = "gemini-1.5-flash-preview-04-17" # Ή όποιο μοντέλο χρησιμοποιείς
+MODEL_NAME = "gemini-2.5-flash-preview-04-17" # Ή όποιο μοντέλο χρησιμοποιείς
 GITHUB_REPO_URL = "github.com/Ecko-the-agent/genesis.git" # Το repo σου
 GITHUB_USER = "Ecko-the-agent" # Το username σου
 # GITHUB_PAT_SECRET_NAME = "github-pat" # Δεν χρειάζεται πλέον
