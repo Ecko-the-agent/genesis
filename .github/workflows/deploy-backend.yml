@@ -1,4 +1,4 @@
-name: Deploy Ecko Backend to GCF
+name: Deploy Ecko Backend to GCF (Vertex AI SDK) # Αλλαγή ονόματος για σαφήνεια
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'backend/**'
-      - '.github/workflows/deploy-backend.yml' # Πρόσθεσα και αυτό για να τρέχει αν αλλάξει το workflow
+      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
 jobs:
@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write'
+      id-token: 'write' # Για την πιστοποίηση στο GCP
 
     steps:
     - name: Checkout code
@@ -23,25 +23,17 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v2'
       with:
+        # Χρησιμοποιούμε το κλειδί του Service Account που έχει τα δικαιώματα (π.χ., aiplatform.user)
         credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    # ---- ΝΕΟ ΒΗΜΑ: Διάβασε το Secret ----
-    - name: Get Gemini API Key from Secret Manager
-      id: get_gemini_key
-      run: |
-        SECRET_VALUE=$(gcloud secrets versions access latest --secret="${{ secrets.GCP_GEMINI_API_KEY_SECRET_NAME }}" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
-        echo "Fetched secret value (masked)"
-        # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
-        echo "GEMINI_KEY_VALUE=$SECRET_VALUE" >> $GITHUB_ENV
+    # ---- ΑΦΑΙΡΕΘΗΚΕ ΤΟ ΒΗΜΑ ΓΙΑ ΤΟ GEMINI API KEY ----
+    # - name: Get Gemini API Key from Secret Manager ...
 
-    # ---- ΤΡΟΠΟΠΟΙΗΜΕΝΟ ΒΗΜΑ: Deploy ----
     - name: Deploy Cloud Function
-      env:
-          # Πέρνα την τιμή του κλειδιού που διαβάστηκε στο προηγούμενο βήμα
-          FETCHED_GEMINI_KEY: ${{ env.GEMINI_KEY_VALUE }}
+      # ---- ΔΕΝ ΧΡΕΙΑΖΕΤΑΙ ΠΛΕΟΝ ΤΟ env ΜΕ ΤΟ ΚΛΕΙΔΙ ----
       run: |
         gcloud functions deploy ecko-http-function \
           --gen2 \
@@ -51,7 +43,8 @@ jobs:
           --entry-point=ecko_main \
           --trigger-http \
           --allow-unauthenticated \
-         --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GEMINI_API_KEY="${FETCHED_GEMINI_KEY}" `# ΔΙΟΡΘΩΣΗ: Προσθήκη εισαγωγικών γύρω από την τιμή` \
+          # --- ΑΦΑΙΡΕΘΗΚΕ ΤΟ GEMINI_API_KEY ΑΠΟ ΤΙΣ ΜΕΤΑΒΛΗΤΕΣ ΠΕΡΙΒΑΛΛΟΝΤΟΣ ---
+          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }} \
           --max-instances=1
 
     # ---- Βήμα για το URL (παραμένει ίδιο) ----
@@ -62,17 +55,5 @@ jobs:
         echo "Function URL: $URL"
         echo "url=$URL" >> $GITHUB_OUTPUT
 
-    # Προαιρετικό: Ενημέρωση του frontend/script.js με το URL (Απαιτεί PAT)
-    # Αυτό είναι μέρος της "αυτο-τροποποίησης" και θα το ενεργοποιήσουμε αργότερα.
-    # - name: Update frontend script with function URL
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Προσωρινά χρησιμοποιούμε το GITHUB_TOKEN, θέλει αλλαγή σε PAT αν χρειάζεται push σε protected branch
-    #     FUNCTION_URL: ${{ steps.get_url.outputs.url }}
-    #   run: |
-    #     echo "Updating script.js with URL: $FUNCTION_URL"
-    #     sed -i "s|const ECKO_BACKEND_URL = '.*';|const ECKO_BACKEND_URL = '$FUNCTION_URL';|" frontend/script.js
-    #     git config --global user.name 'github-actions[bot]'
-    #     git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-    #     git add frontend/script.js
-    #     git commit -m "Auto-update backend URL in frontend script [skip ci]" || echo "No changes to commit"
-    #     git push # Αυτό θα προκαλέσει νέο build, ίσως χρειάζεται προσοχή ή διαφορετική προσέγγιση (π.χ. commit με [skip ci])
+    # Προαιρετικό βήμα ενημέρωσης frontend (παραμένει ίδιο, αλλά σχολιασμένο)
+    # ...
