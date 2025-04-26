@@ -1,6 +1,4 @@
 functions-framework
-google-cloud-aiplatform # <-- ΝΕΑ ΒΙΒΛΙΟΘΗΚΗ
-google-cloud-firestore # (Το χρειαζόμαστε ακόμα)
-# google-generativeai <---- ΑΦΑΙΡΕΘΗΚΕ/ΣΧΟΛΙΑΣΤΗΚΕ
-# Flask <---- Παραμένει αφαιρεμένο
-# Flask-Cors <---- Παραμένει αφαιρεμένο
+google-cloud-aiplatform >= 1.38 # Χρησιμοποιούμε μια πρόσφατη έκδοση
+google-cloud-firestore
+# vertexai (συνήθως έρχεται με το aiplatform, αλλά πρόσθεσέ το αν υπάρξει πρόβλημα)

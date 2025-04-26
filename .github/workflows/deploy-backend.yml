@@ -39,7 +39,8 @@ jobs:
           --trigger-http \
           --allow-unauthenticated \
           --set-env-vars="GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }}" \
-          --max-instances=1
+          --max-instances=1 \
+          --memory=512MiB # <--- ΠΡΟΣΘΗΚΗ ΓΙΑ ΑΥΞΗΣΗ ΜΝΗΜΗΣ
       # ΣΗΜΕΙΩΣΗ: Έβαλα εισαγωγικά γύρω από τις τιμές των παραμέτρων
       # και αφαίρεσα το περιττό σχόλιο που μπορεί να μπέρδευε τη συνέχεια γραμμής.
 

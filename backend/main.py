@@ -3,22 +3,22 @@ import json
 import os
 import datetime
 from google.cloud import firestore
-from google.cloud import aiplatform # Χρησιμοποιούμε το Vertex AI SDK
-# from google.cloud.aiplatform.gapic.schema import predict # Δεν χρειάζεται για το generate_content
+# --- Διορθωμένα Imports για Vertex AI ---
+import vertexai
+from vertexai.generative_models import GenerativeModel, GenerationConfig, Part
 
-print("--- Python script starting (Vertex AI SDK - Corrected - Top Level) ---")
+print("--- Python script starting (Vertex AI SDK - FINAL FIX - Top Level) ---")
 
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
-REGION = "europe-west1" # Η region της function (σημαντικό για Vertex AI)
-MODEL_NAME = "gemini-1.5-flash-001" # Συγκεκριμένο όνομα μοντέλου στο Vertex AI
+REGION = "europe-west1"
+MODEL_NAME = "gemini-1.5-flash-001"
 
 CONVERSATION_COLLECTION = 'conversations'
 MAIN_CONVERSATION_DOC_ID = 'main_chat_history'
-HISTORY_LIMIT = 10
-ALLOWED_ORIGIN = "https://ecko-the-agent.github.io" # Το Origin του Frontend
+HISTORY_LIMIT = 10 # Πόσα *ζεύγη* μηνυμάτων να κρατάμε (User + Ecko)
+ALLOWED_ORIGIN = "https://ecko-the-agent.github.io"
 
-# Headers for CORS responses
 CORS_HEADERS = {
     'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -28,10 +28,9 @@ CORS_HEADERS = {
 
 # --- Initialize Clients ---
 db = None
-model = None # Θα είναι το Vertex AI model object
-initialization_error_msg = None # Μήνυμα για τυχόν σφάλμα
+model = None
+initialization_error_msg = None
 
-# Initialize Firestore
 try:
     print("Attempting to initialize Firestore client...")
     db = firestore.Client(project=PROJECT_ID)
@@ -40,31 +39,31 @@ except Exception as e:
     print(f"CRITICAL ERROR during Firestore initialization: {e}")
     initialization_error_msg = f"Firestore Init Failed: {e}"
 
-# Initialize Vertex AI *ΜΟΝΟ* αν δεν υπάρχει ήδη σφάλμα Firestore
 if not initialization_error_msg:
     try:
         print(f"Attempting to initialize Vertex AI for project {PROJECT_ID} in region {REGION}...")
-        aiplatform.init(project=PROJECT_ID, location=REGION)
+        # --- Διορθωμένη Αρχικοποίηση Vertex AI ---
+        vertexai.init(project=PROJECT_ID, location=REGION)
         print("Vertex AI base initialized. Getting GenerativeModel...")
-        # Παίρνουμε το model object εδώ - βασίζεται σε ADC για πιστοποίηση
-        model = aiplatform.GenerativeModel(MODEL_NAME)
+        # --- Διορθωμένη Λήψη Μοντέλου ---
+        model = GenerativeModel(MODEL_NAME)
         print(f"Vertex AI GenerativeModel '{MODEL_NAME}' obtained successfully.")
     except Exception as e:
         print(f"CRITICAL ERROR during Vertex AI initialization or model getting: {e}")
         initialization_error_msg = f"Vertex AI Init/Model Failed: {e}"
 
 
-# --- Firestore Helper Functions --- (Ίδιες)
+# --- Firestore Helper Functions ---
 def get_conversation_history(doc_id, limit=HISTORY_LIMIT):
-    if not db: return [] # Επιστρέφει κενό αν το db δεν αρχικοποιήθηκε
-    # ... (rest of the function is the same) ...
+    if not db: return []
     try:
         doc_ref = db.collection(CONVERSATION_COLLECTION).document(doc_id)
         doc = doc_ref.get()
         if doc.exists:
             history = doc.to_dict().get('messages', [])
             print(f"Retrieved {len(history)} messages from Firestore doc: {doc_id}")
-            return history[-limit:]
+            # Επιστρέφουμε τα τελευταία limit * 2 μηνύματα (limit ζεύγη)
+            return history[-(limit * 2):]
         else:
             print(f"Firestore document {doc_id} not found.")
             return []
@@ -73,16 +72,15 @@ def get_conversation_history(doc_id, limit=HISTORY_LIMIT):
         return []
 
 def add_to_conversation_history(doc_id, user_msg, ecko_msg):
-    if not db: return False # Επιστρέφει False αν το db δεν αρχικοποιήθηκε
-    # ... (rest of the function is the same) ...
+    if not db: return False
     try:
         doc_ref = db.collection(CONVERSATION_COLLECTION).document(doc_id)
         timestamp = datetime.datetime.now(tz=datetime.timezone.utc)
-        new_messages = [
-            {"sender": "user", "message": user_msg, "timestamp": timestamp},
-            {"sender": "ecko", "message": ecko_msg, "timestamp": timestamp}
-        ]
-        doc_ref.set({'messages': firestore.ArrayUnion(new_messages)}, merge=True)
+        # ΣΗΜΑΝΤΙΚΟ: Αποθηκεύουμε ξεχωριστά για να διατηρείται η σειρά στο Firestore ArrayUnion
+        user_entry = {"sender": "user", "message": user_msg, "timestamp": timestamp}
+        ecko_entry = {"sender": "ecko", "message": ecko_msg, "timestamp": timestamp}
+        # Χρησιμοποιούμε ArrayUnion για κάθε μήνυμα ξεχωριστά
+        doc_ref.set({'messages': firestore.ArrayUnion([user_entry, ecko_entry])}, merge=True)
         print(f"Successfully added messages to Firestore doc: {doc_id}")
         return True
     except Exception as e:
@@ -92,36 +90,28 @@ def add_to_conversation_history(doc_id, user_msg, ecko_msg):
 # --- GCF Entry Point ---
 @functions_framework.http
 def ecko_main(request):
-    print(f"--- GCF Entry Point Triggered (ecko_main - Vertex Corrected), Method: {request.method}, Path: {request.path} ---")
+    print(f"--- GCF Entry Point Triggered (Vertex Final Fix), Method: {request.method}, Path: {request.path} ---")
 
-    # --- Check for initialization errors ---
     if initialization_error_msg:
         print(f"!!! Initialization Error detected: {initialization_error_msg}")
         error_response = json.dumps({"error": f"Server initialization failed: {initialization_error_msg}"})
-        error_headers = CORS_HEADERS.copy()
-        error_headers['Content-Type'] = 'application/json'
-        # ΣΗΜΑΝΤΙΚΟ: Επιστρέφουμε 500 ΑΚΟΜΑ ΚΑΙ ΓΙΑ OPTIONS αν η αρχικοποίηση απέτυχε
+        error_headers = CORS_HEADERS.copy(); error_headers['Content-Type'] = 'application/json'
         return (error_response, 500, error_headers)
 
-    # --- Handle CORS Preflight (OPTIONS) ---
-    # Αυτό εκτελείται ΜΟΝΟ αν ΔΕΝ υπήρξε σφάλμα αρχικοποίησης
     if request.method == 'OPTIONS':
         print("--- Handling OPTIONS request ---")
         return ('', 204, CORS_HEADERS)
 
-    # --- Handle POST Requests ---
-    # Αυτό εκτελείται ΜΟΝΟ αν ΔΕΝ υπήρξε σφάλμα αρχικοποίησης
     if request.method == 'POST':
-        print("--- Handling POST request (Vertex AI Corrected) ---")
+        print("--- Handling POST request (Vertex AI Final Fix) ---")
         response_headers = {'Access-Control-Allow-Origin': CORS_HEADERS['Access-Control-Allow-Origin']}
         response_headers['Content-Type'] = 'application/json'
 
         ecko_response_text = "Error processing request."
         user_message = ""
 
-        # Έλεγχος αν τα clients είναι έτοιμα (διπλός έλεγχος μετά την αρχικοποίηση)
         if not db or not model:
-             print("--- Error: DB or AI Model client is not available post-init ---")
+             print("--- Error: DB or AI Model client is not available ---")
              error_response = json.dumps({"error": "Server error: Required clients not available."})
              return (error_response, 500, response_headers)
 
@@ -137,28 +127,36 @@ def ecko_main(request):
 
             # --- Ecko Logic (Firestore & Vertex AI) ---
             print("Getting history...")
-            history = get_conversation_history(MAIN_CONVERSATION_DOC_ID)
+            history_list = get_conversation_history(MAIN_CONVERSATION_DOC_ID)
 
-            # --- Format prompt ---
-            prompt_for_vertex = f"User: {user_message}\nEcko:" # Απλό prompt για αρχή
-            # TODO: Ενσωμάτωση ιστορικού στο prompt αν χρειαστεί
+            # --- Format Chat History for Vertex AI ---
+            chat_history_for_vertex = []
+            for entry in history_list:
+                 role = "user" if entry.get("sender") == "user" else "model" # Vertex χρησιμοποιεί "user" και "model"
+                 chat_history_for_vertex.append(Part.from_text(entry.get("message", ""))) # Προσθέτουμε το μήνυμα ως Part
 
-            print(f"--- Sending Prompt to Vertex AI Model {MODEL_NAME} ---")
+            # --- Create Chat Session (optional but good practice) ---
+            chat = model.start_chat(history=chat_history_for_vertex)
+
+            print(f"--- Sending message to Vertex AI Model {MODEL_NAME} via chat ---")
             try:
-                # Κλήση στο Vertex AI model (που αρχικοποιήθηκε στην αρχή)
-                prediction_response = model.generate_content(
-                    prompt_for_vertex,
-                    generation_config={"max_output_tokens": 2048, "temperature": 0.7, "top_p": 1.0}
+                # Send message via chat session
+                prediction_response = chat.send_message(
+                    user_message, # Στέλνουμε μόνο το νέο μήνυμα
+                    generation_config=GenerationConfig( # Χρησιμοποιούμε το σωστό GenerationConfig
+                        max_output_tokens=2048,
+                        temperature=0.7,
+                        top_p=1.0,
+                    )
                 )
-                print(f"Vertex AI Raw Response: {prediction_response}")
+                print(f"Vertex AI Chat Response: {prediction_response}")
 
-                # Extract text
+                # Extract text (παρόμοιο με πριν)
                 if not prediction_response.candidates:
                     block_reason = prediction_response.prompt_feedback.block_reason if prediction_response.prompt_feedback else 'Unknown'
                     print(f"Vertex AI response blocked or empty. Reason: {block_reason}")
                     ecko_response_text = f"[AI response blocked/empty: {block_reason}]"
                 else:
-                    # Προσοχή: Η δομή μπορεί να διαφέρει ελαφρώς
                     try:
                         ecko_response_text = prediction_response.candidates[0].content.parts[0].text
                     except (IndexError, AttributeError) as extraction_error:
@@ -168,14 +166,13 @@ def ecko_main(request):
                 print(f"Extracted Response: {ecko_response_text}")
 
                 # Save to Firestore
-                if user_message and ecko_response_text and not ecko_response_text.startswith("["): # Αποφυγή αποθήκευσης σφαλμάτων
+                if user_message and ecko_response_text and not ecko_response_text.startswith("["):
                    print("Attempting to save conversation to Firestore...")
                    add_success = add_to_conversation_history(MAIN_CONVERSATION_DOC_ID, user_message, ecko_response_text)
                    if not add_success: print("Warning: Failed to save conversation to Firestore.")
 
             except Exception as vertex_error:
                 print(f"Vertex AI prediction error: {vertex_error}")
-                # Εδώ θα πρέπει να εμφανιστούν τα σφάλματα όπως το "Illegal metadata" αν παραμένουν
                 ecko_response_text = f"Error communicating with AI model (Vertex): {vertex_error}"
 
             # -------------------------------------
@@ -194,4 +191,4 @@ def ecko_main(request):
         print(f"--- Method Not Allowed: {request.method} ---")
         return ('Method Not Allowed', 405, CORS_HEADERS)
 
-print("--- Python script finished loading (Vertex AI SDK - Corrected - Bottom Level) ---")
+print("--- Python script finished loading (Vertex AI SDK - FINAL FIX - Bottom Level) ---")
