@@ -14,20 +14,17 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # Required for ADC authentication
+      id-token: 'write' # Might still be needed by gcloud internally, doesn't hurt to leave it
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # Use Workload Identity Federation/ADC (preferred over SA keys)
+    # Use only Service Account Key for authentication
     - name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v2'
       with:
-        workload_identity_provider: 'projects/${{ secrets.GCP_WIF_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.GCP_WIF_POOL }}/providers/${{ secrets.GCP_WIF_PROVIDER }}' # Use WIF details if configured
-        service_account: '${{ secrets.GCP_SA_EMAIL }}' # Use Service Account email for WIF
-        # --- Fallback to SA Key if WIF is not set up ---
-        credentials_json: '${{ secrets.GCP_SA_KEY }}' # Keep this for now as fallback/simplicity
+        credentials_json: '${{ secrets.GCP_SA_KEY }}' # Use the Service Account key
 
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
@@ -37,7 +34,8 @@ jobs:
     # ---- Deploy ----
     - name: Deploy Cloud Function
       run: |
-        # No need to set API keys as env vars when using ADC
+        # No need to set API keys as env vars when using ADC (which we are not using for the function's runtime)
+        # We also removed the code reading the keys, so no need to pass them here.
         gcloud functions deploy ecko-http-function \
           --gen2 \
           --region=us-central1 \
@@ -47,7 +45,7 @@ jobs:
           --entry-point=ecko_main \
           --trigger-http \
           --allow-unauthenticated \
-          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }} `# Only pass Project ID if needed by code` \
+          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }} \
           --max-instances=1
 
     # ---- Get URL ----
