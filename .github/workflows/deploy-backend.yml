@@ -31,7 +31,7 @@ jobs:
       run: |
         gcloud functions deploy ecko-http-function \
           --gen2 \
-          --region=europe-west8 `# Επίλεξε μια περιοχή κοντά σου, π.χ., europe-west1 (Belgium)` \
+          --region=europe-west1 `# Επίλεξε μια περιοχή κοντά σου, π.χ., europe-west1 (Belgium)` \
           --runtime=python312 `# Έλεγξε την τελευταία υποστηριζόμενη έκδοση Python` \
           --source=./backend \
           --entry-point=ecko_main \
@@ -43,7 +43,7 @@ jobs:
     - name: Get Function URL
       id: get_url
       run: |
-        URL=$(gcloud functions describe ecko-http-function --gen2 --region=europe-west8 --format='value(serviceConfig.uri)')
+        URL=$(gcloud functions describe ecko-http-function --gen2 --region=europe-west1 --format='value(serviceConfig.uri)')
         echo "Function URL: $URL"
         echo "url=$URL" >> $GITHUB_OUTPUT
 
