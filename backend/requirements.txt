@@ -1,5 +1,6 @@
 functions-framework
-google-generativeai # <-- Ξεσχολιάστηκε
-google-cloud-firestore # <-- Ξεσχολιάστηκε
-# Flask <---- Παραμένει σχόλιο/αφαιρεμένο
-# Flask-Cors <---- Παραμένει σχόλιο/αφαιρεμένο
+google-cloud-aiplatform # <-- ΝΕΑ ΒΙΒΛΙΟΘΗΚΗ
+google-cloud-firestore # (Το χρειαζόμαστε ακόμα)
+# google-generativeai <---- ΑΦΑΙΡΕΘΗΚΕ/ΣΧΟΛΙΑΣΤΗΚΕ
+# Flask <---- Παραμένει αφαιρεμένο
+# Flask-Cors <---- Παραμένει αφαιρεμένο
