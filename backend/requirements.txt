@@ -1,6 +1,4 @@
 functions-framework>=3.0.0
 google-cloud-firestore>=2.11.0
 google-cloud-aiplatform>=1.25.0
-GitPython>=3.1.0
-# google-cloud-secretmanager>=2.16.0 # Παραμένει σχόλιο
-pytz # <-- ΠΡΟΣΘΗΚΗ ΑΥΤΗΣ ΤΗΣ ΓΡΑΜΜΗΣ
+pytz # Για τα timestamps
