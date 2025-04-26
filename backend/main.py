@@ -2,25 +2,26 @@ import functions_framework
 import google.cloud.firestore
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, Content, GenerationConfig
-# Αφαιρέθηκαν οι εισαγωγές για git, subprocess, secretmanager, shutil, tempfile, Actor, pytz (το pytz θα το ξαναπροσθέσουμε)
+
 import os
 import datetime
-import pytz # <-- Προστέθηκε ξανά για τα timestamps
+import pytz
+import json
+import traceback
 
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
-REGION = "us-central1"  # Επιβεβαίωση της περιοχής
-MODEL_NAME = "gemini-2.5-flash-preview-04-17" # <-- Το σωστό preview model
+REGION = "us-central1"  # Περιοχή που τρέχει η Function
+MODEL_NAME = "gemini-2.5-flash-preview-04-17" # <-- Το σωστό Preview Model
+
 CONVERSATION_COLLECTION = "conversations"
 MAIN_CHAT_HISTORY_DOC = "main_chat_history"
-MAX_HISTORY_LENGTH = 20 # Μέγιστος αριθμός μηνυμάτων ιστορικού
+MAX_HISTORY_LENGTH = 20 # Max history messages for context
 
 # --- Initialize Clients ---
 db = None
 model = None
-
-print("Initializing Ecko Backend (Phase 2.5 State)...")
-
+print("Initializing Ecko Backend (Chat only)...")
 try:
     # Initialize Vertex AI
     vertexai.init(project=PROJECT_ID, location=REGION)
@@ -34,22 +35,21 @@ try:
     model = GenerativeModel(MODEL_NAME)
     print(f"Generative model {MODEL_NAME} loaded.")
 
-    # Generation Config
+    # Generation Config (Optional)
     generation_config = GenerationConfig(
         temperature=0.7,
-        max_output_tokens=2048, # Επαναφορά ορίου (ή όσο ήταν)
+        max_output_tokens=2048,
     )
 
 except Exception as e:
     print(f"CRITICAL ERROR during initialization: {e}")
-    import traceback
     traceback.print_exc()
     raise RuntimeError(f"Initialization failed: {e}")
 
-# --- Firestore Helper Functions (Παραμένουν ίδια) ---
+# --- Helper Functions ---
 
 def get_conversation_history(doc_id=MAIN_CHAT_HISTORY_DOC, limit=MAX_HISTORY_LENGTH):
-    """Ανακτά το ιστορικό της συνομιλίας από το Firestore."""
+    """Retrieves conversation history from Firestore for Vertex AI."""
     if not db:
         print("Error: Firestore client not initialized in get_conversation_history.")
         return []
@@ -72,12 +72,11 @@ def get_conversation_history(doc_id=MAIN_CHAT_HISTORY_DOC, limit=MAX_HISTORY_LEN
             return []
     except Exception as e:
         print(f"Error getting conversation history (doc: {doc_id}): {e}")
-        import traceback
         traceback.print_exc()
         return []
 
 def add_to_conversation_history(message_text, sender, doc_id=MAIN_CHAT_HISTORY_DOC):
-    """Προσθέτει ένα νέο μήνυμα στο ιστορικό της συνομιλίας στο Firestore."""
+    """Adds a new message to the conversation history in Firestore."""
     if not db:
         print("Error: Firestore client not initialized in add_to_conversation_history.")
         return
@@ -86,7 +85,7 @@ def add_to_conversation_history(message_text, sender, doc_id=MAIN_CHAT_HISTORY_D
         return
     try:
         doc_ref = db.collection(CONVERSATION_COLLECTION).document(doc_id)
-        timestamp = datetime.datetime.now(pytz.utc) # Χρήση UTC timezone
+        timestamp = datetime.datetime.now(pytz.utc)
         new_message = {
             "sender": sender,
             "message": message_text,
@@ -96,15 +95,13 @@ def add_to_conversation_history(message_text, sender, doc_id=MAIN_CHAT_HISTORY_D
         print(f"Added message from '{sender}' to history (doc: {doc_id}).")
     except Exception as e:
         print(f"Error adding to conversation history (doc: {doc_id}): {e}")
-        import traceback
         traceback.print_exc()
 
 
-# --- Main HTTP Cloud Function (Χωρίς self-modification) ---
-
+# --- Main HTTP Cloud Function ---
 @functions_framework.http
 def ecko_main(request):
-    """HTTP Cloud Function entry point."""
+    """Handles incoming HTTP requests."""
 
     # --- CORS Preflight Handling ---
     if request.method == 'OPTIONS':
@@ -139,7 +136,7 @@ def ecko_main(request):
 
             ecko_response = "Συνέβη ένα απρόσμενο σφάλμα κατά την επεξεργασία." # Default
 
-            # --- Κανονική Συνομιλία ---
+            # --- Normal Conversation Logic ---
             add_to_conversation_history(user_message, 'user')
             conversation_history = get_conversation_history()
 
@@ -155,11 +152,9 @@ def ecko_main(request):
                 add_to_conversation_history(ecko_response, 'model')
             except Exception as llm_error:
                 print(f"Error during LLM communication: {llm_error}")
-                import traceback
-                traceback.print_exc() # Εκτύπωσε το πλήρες σφάλμα στα logs
-                # Εδώ φαίνεται ότι επιστρέφαμε το "Συγγνώμη..."
+                traceback.print_exc()
                 ecko_response = "Συγγνώμη, αντιμετώπισα ένα πρόβλημα κατά την προσπάθεια να σου απαντήσω."
-                # Προσθήκη του μηνύματος σφάλματος στο ιστορικό
+                # Add error message to history as Ecko's response
                 add_to_conversation_history(ecko_response, 'model')
 
 
@@ -168,7 +163,6 @@ def ecko_main(request):
 
         except Exception as e:
             print(f"Critical error processing POST request: {e}")
-            import traceback
             traceback.print_exc()
             return (json.dumps({"error": "An internal server error occurred."}), 500, cors_headers)
 

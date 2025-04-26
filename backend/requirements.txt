@@ -1,4 +1,5 @@
 functions-framework>=3.0.0
 google-cloud-firestore>=2.11.0
 google-cloud-aiplatform>=1.25.0
-pytz # Για τα timestamps
+# vertexai SDK περιλαμβάνεται στο google-cloud-aiplatform
+pytz
