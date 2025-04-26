@@ -14,7 +14,7 @@ import re # <-- ΝΕΑ ΕΙΣΑΓΩΓΗ ΓΙΑ REGULAR EXPRESSIONS
 # --- Configuration ---
 PROJECT_ID = "projectgenesis-457923"
 REGION = "us-central1" # Η περιοχή όπου τρέχει η function και το Vertex AI
-MODEL_NAME = "gemini-1.5-flash-preview-0417" # Το μοντέλο που χρησιμοποιούμε
+MODEL_NAME = "gemini-2.5-flash-preview-04-17" # Το μοντέλο που χρησιμοποιούμε
 FIRESTORE_COLLECTION = "conversations"
 CONVERSATION_DOC_ID = "main_chat_history"
 GITHUB_REPO_URL_TEMPLATE = "https://{pat}@github.com/Ecko-the-agent/genesis.git" # Template for repo URL with PAT
