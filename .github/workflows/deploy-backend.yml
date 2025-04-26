@@ -3,17 +3,18 @@ name: Deploy Ecko Backend to GCF
 on:
   push:
     branches:
-      - main # Trigger deployment on push to main branch
+      - main
     paths:
-      - 'backend/**' # Only run if files in backend/ change
-  workflow_dispatch: # Allow manual trigger from GitHub UI
+      - 'backend/**'
+      - '.github/workflows/deploy-backend.yml' # Πρόσθεσα και αυτό για να τρέχει αν αλλάξει το workflow
+  workflow_dispatch:
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write' # Required for Workload Identity Federation (preferred) or SA key auth
+      id-token: 'write'
 
     steps:
     - name: Checkout code
@@ -22,24 +23,38 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v2'
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}' # Use the Service Account key stored in secrets
+        credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
 
+    # ---- ΝΕΟ ΒΗΜΑ: Διάβασε το Secret ----
+    - name: Get Gemini API Key from Secret Manager
+      id: get_gemini_key
+      run: |
+        SECRET_VALUE=$(gcloud secrets versions access latest --secret="${{ secrets.GCP_GEMINI_API_KEY_SECRET_NAME }}" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
+        echo "Fetched secret value (masked)"
+        # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
+        echo "GEMINI_KEY_VALUE=$SECRET_VALUE" >> $GITHUB_ENV
+
+    # ---- ΤΡΟΠΟΠΟΙΗΜΕΝΟ ΒΗΜΑ: Deploy ----
     - name: Deploy Cloud Function
+      env:
+          # Πέρνα την τιμή του κλειδιού που διαβάστηκε στο προηγούμενο βήμα
+          FETCHED_GEMINI_KEY: ${{ env.GEMINI_KEY_VALUE }}
       run: |
         gcloud functions deploy ecko-http-function \
           --gen2 \
-          --region=europe-west1 `# Επίλεξε μια περιοχή κοντά σου, π.χ., europe-west1 (Belgium)` \
-          --runtime=python311 `# Έλεγξε την τελευταία υποστηριζόμενη έκδοση Python` \
+          --region=europe-west1 \
+          --runtime=python311 \
           --source=./backend \
           --entry-point=ecko_main \
           --trigger-http \
           --allow-unauthenticated \
-          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GEMINI_API_KEY_SECRET_NAME=${{ secrets.GCP_GEMINI_API_KEY_SECRET_NAME }} \
-          --max-instances=1 `# Ξεκίνα με 1 για να κρατήσεις το κόστος χαμηλά στο free tier`
+          --set-env-vars=GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GEMINI_API_KEY=$FETCHED_GEMINI_KEY `# ΑΛΛΑΓΗ ΕΔΩ: Περνάμε την τιμή, όχι το όνομα του secret` \
+          --max-instances=1
 
+    # ---- Βήμα για το URL (παραμένει ίδιο) ----
     - name: Get Function URL
       id: get_url
       run: |
