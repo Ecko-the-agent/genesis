@@ -22,7 +22,7 @@ async function sendMessage() {
     const message = userInput.value.trim();
     if (!message) return;
 
-    if (ECKO_BACKEND_URL === 'YOUR_FUNCTION_URL_HERE' || !ECKO_BACKEND_URL) {
+    if (ECKO_BACKEND_URL === 'https://ecko-http-function-p2bsy3odya-ew.a.run.app' || !ECKO_BACKEND_URL) {
          addMessage('System', 'Το URL του backend δεν έχει οριστεί ακόμα στο script.js. Κάνε deploy πρώτα το backend.');
          userInput.value = '';
          return;
