@@ -22,11 +22,7 @@ async function sendMessage() {
     const message = userInput.value.trim();
     if (!message) return;
 
-    if (ECKO_BACKEND_URL === 'https://ecko-http-function-p2bsy3odya-ew.a.run.app' || !ECKO_BACKEND_URL) {
-         addMessage('System', 'Το URL του backend δεν έχει οριστεί ακόμα στο script.js. Κάνε deploy πρώτα το backend.');
-         userInput.value = '';
-         return;
-    }
+    // Ο ΕΛΕΓΧΟΣ IF ΕΧΕΙ ΑΦΑΙΡΕΘΕΙ ΑΠΟ ΕΔΩ
 
     addMessage('Εσύ', message);
     userInput.value = '';
@@ -34,7 +30,7 @@ async function sendMessage() {
     loadingIndicator.style.display = 'block';
 
     try {
-        const response = await fetch(ECKO_BACKEND_URL, {
+        const response = await fetch(ECKO_BACKEND_URL, { // Τώρα θα εκτελεστεί κανονικά
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -43,6 +39,8 @@ async function sendMessage() {
         });
 
         if (!response.ok) {
+            // Handling non-2xx responses, including potential CORS issues if they reappear
+            // We might need more specific error handling based on status code later
             throw new Error(`HTTP error! status: ${response.status}`);
         }
 
@@ -51,16 +49,14 @@ async function sendMessage() {
 
     } catch (error) {
         console.error('Error sending message:', error);
-        addMessage('System', `Σφάλμα επικοινωνίας με τον Ecko: ${error.message}`);
+        // Check if the error is a TypeError (often network/CORS related)
+        if (error instanceof TypeError) {
+             addMessage('System', `Σφάλμα δικτύου ή CORS κατά την επικοινωνία με τον Ecko. Βεβαιωθείτε ότι το backend URL (${ECKO_BACKEND_URL}) είναι σωστό και προσβάσιμο.`);
+        } else {
+             addMessage('System', `Σφάλμα επικοινωνίας με τον Ecko: ${error.message}`);
+        }
     } finally {
         sendButton.disabled = false;
         loadingIndicator.style.display = 'none';
     }
 }
-
-// Allow sending message with Enter key
-userInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        sendMessage();
-    }
-});
