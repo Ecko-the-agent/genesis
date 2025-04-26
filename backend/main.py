@@ -12,7 +12,7 @@ print("--- Python script starting (Vertex AI SDK - History Fix - Top Level) ---"
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
 REGION = "europe-west1"
-MODEL_NAME = "gemini-2.5-pro-preview-03-25" # <-- ΤΟ ΣΩΣΤΟ PREVIEW ΜΟΝΤΕΛΟ
+MODEL_NAME = "gemini-1.5-flash" # <-- ΤΟ ΣΩΣΤΟ PREVIEW ΜΟΝΤΕΛΟ
 
 CONVERSATION_COLLECTION = 'conversations'
 MAIN_CONVERSATION_DOC_ID = 'main_chat_history'
