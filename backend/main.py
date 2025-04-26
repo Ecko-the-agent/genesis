@@ -2,61 +2,47 @@ import functions_framework
 import google.cloud.firestore
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, Content, GenerationConfig
-# from vertexai.preview.generative_models import Tool # Not used currently
 
 import os
 import datetime
-import pytz # Dependency added in requirements.txt
+import pytz
 import json
 import tempfile
 import shutil
-from git import Repo, Actor # Dependency added in requirements.txt
-import traceback # For better error logging
+from git import Repo, Actor # Χρησιμοποιείται ακόμα για add/commit/push
+import subprocess # <-- ΝΕΑ ΕΙΣΑΓΩΓΗ
+import traceback
 
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
 REGION = "us-central1"
-MODEL_NAME = "gemini-2.5-flash-preview-04-17" # Using the correct 2.5 model
-GITHUB_REPO_URL = "github.com/Ecko-the-agent/genesis.git" # Base URL without https://
-GITHUB_USER = "Ecko-the-agent" # Your GitHub username
-GITHUB_PAT_ENV_VAR_NAME = "GITHUB_PAT_VALUE" # Env var name for the PAT
+MODEL_NAME = "gemini-2.5-flash-preview-04-17" # Διορθωμένο όνομα μοντέλου
+GITHUB_REPO_URL = "github.com/Ecko-the-agent/genesis.git" # Χωρίς https:// και χωρίς τελική /
+GITHUB_USER = "Ecko-the-agent"
+GITHUB_PAT_ENV_VAR_NAME = "GITHUB_PAT_VALUE"
 
 CONVERSATION_COLLECTION = "conversations"
 MAIN_CHAT_HISTORY_DOC = "main_chat_history"
-MAX_HISTORY_LENGTH = 20 # How many messages to feed back to the LLM
+MAX_HISTORY_LENGTH = 20
 
 # --- Initialize Clients ---
 db = None
 model = None
-
 print("Initializing Ecko Backend...")
-
 try:
-    # Initialize Vertex AI
     vertexai.init(project=PROJECT_ID, location=REGION)
     print(f"Vertex AI initialized for project {PROJECT_ID} in {REGION}")
-
-    # Initialize Firestore
     db = google.cloud.firestore.Client()
     print("Firestore client initialized.")
-
-    # Load the generative model
     model = GenerativeModel(MODEL_NAME)
     print(f"Generative model {MODEL_NAME} loaded.")
-
-    # Generation Config (Optional)
-    generation_config = GenerationConfig(
-        temperature=0.7,
-        max_output_tokens=2048, # Increased token limit slightly
-    )
-
+    generation_config = GenerationConfig(temperature=0.7, max_output_tokens=2048)
 except Exception as e:
     print(f"CRITICAL ERROR during initialization: {e}")
     traceback.print_exc()
     raise RuntimeError(f"Initialization failed: {e}")
 
 # --- Helper Functions ---
-
 def get_github_pat():
     """Retrieves the GitHub PAT from the environment variable."""
     github_pat = os.environ.get(GITHUB_PAT_ENV_VAR_NAME)
@@ -68,7 +54,7 @@ def get_github_pat():
         return github_pat
 
 def get_conversation_history(doc_id=MAIN_CHAT_HISTORY_DOC, limit=MAX_HISTORY_LENGTH):
-    """Retrieves conversation history from Firestore."""
+    # ... (Same as previous version) ...
     if not db:
         print("Error: Firestore client not initialized in get_conversation_history.")
         return []
@@ -94,8 +80,9 @@ def get_conversation_history(doc_id=MAIN_CHAT_HISTORY_DOC, limit=MAX_HISTORY_LEN
         traceback.print_exc()
         return []
 
+
 def add_to_conversation_history(message_text, sender, doc_id=MAIN_CHAT_HISTORY_DOC):
-    """Adds a new message to the conversation history in Firestore."""
+    # ... (Same as previous version) ...
     if not db:
         print("Error: Firestore client not initialized in add_to_conversation_history.")
         return
@@ -118,7 +105,7 @@ def add_to_conversation_history(message_text, sender, doc_id=MAIN_CHAT_HISTORY_D
 
 def execute_code_modification(instruction):
     """
-    Executes code modification: LLM plan -> Clone -> Apply -> Commit -> Push.
+    Executes code modification: LLM plan -> Clone (using subprocess) -> Apply -> Commit -> Push.
     """
     if not model:
         return "Σφάλμα: Το LLM δεν είναι διαθέσιμο για να επεξεργαστεί την τροποποίηση."
@@ -126,6 +113,7 @@ def execute_code_modification(instruction):
     print(f"Attempting code modification based on: '{instruction}'")
 
     # --- 1. LLM for change generation ---
+    # ... (Same LLM logic as before) ...
     prompt = f"""
     You are Ecko, an AI agent capable of modifying your own source code stored in a Git repository ({GITHUB_REPO_URL}).
     The user wants to make the following change: '{instruction}'
@@ -143,26 +131,17 @@ def execute_code_modification(instruction):
     If the request is unclear, too complex, involves actions other than modifying file content (like creating/deleting files, running commands), or requires modifying multiple unrelated files in one go, respond with:
     {{ "error": "The request is unclear, too complex, involves unsupported actions, or targets multiple files. Please provide a specific content change request for one file at a time." }}
     """
-    llm_output = "" # Initialize for error handling
+    llm_output = ""
     try:
         response = model.generate_content(prompt)
         llm_output = response.text.strip()
         print(f"LLM Response for modification plan:\n-----\n{llm_output}\n-----")
-
-        # Clean potential markdown fences
-        if llm_output.startswith("```json"):
-            llm_output = llm_output[7:]
-        if llm_output.endswith("```"):
-            llm_output = llm_output[:-3]
+        if llm_output.startswith("```json"): llm_output = llm_output[7:]
+        if llm_output.endswith("```"): llm_output = llm_output[:-3]
         llm_output = llm_output.strip()
-
         modification_plan = json.loads(llm_output)
-
-        if "error" in modification_plan:
-            return f"Αποτυχία τροποποίησης: {modification_plan['error']}"
-        if not isinstance(modification_plan, dict) or not modification_plan:
-             raise ValueError("LLM response is not a valid JSON object with file modifications.")
-
+        if "error" in modification_plan: return f"Αποτυχία τροποποίησης: {modification_plan['error']}"
+        if not isinstance(modification_plan, dict) or not modification_plan: raise ValueError("LLM response is not a valid JSON object with file modifications.")
     except json.JSONDecodeError as json_err:
          print(f"JSON Decode Error from LLM output: {json_err}")
          print(f"Raw LLM Output received was: {llm_output}")
@@ -170,46 +149,55 @@ def execute_code_modification(instruction):
     except Exception as e:
         print(f"LLM generation error for modification: {e}")
         traceback.print_exc()
-        # Include the specific error in the response to the user
         return f"Σφάλμα: Το AI δεν μπόρεσε να επεξεργαστεί το αίτημα τροποποίησης ({e})."
 
     # --- 2. Get GitHub PAT ---
     github_pat = get_github_pat()
     if not github_pat:
-        return "Σφάλμα: Αδυναμία ανάκτησης του GitHub token (δεν βρέθηκε η μεταβλητή περιβάλλοντος). Η τροποποίηση ακυρώθηκε."
+        return "Σφάλμα: Αδυναμία ανάκτησης του GitHub token. Η τροποποίηση ακυρώθηκε."
 
-    # --- 3. Create Temp Dir & Clone ---
+    # --- 3. Create Temp Dir & Clone (using subprocess) --- <--- *** MODIFIED PART ***
     repo_dir = None
     try:
         with tempfile.TemporaryDirectory() as repo_dir:
             print(f"Created temporary directory: {repo_dir}")
 
-            # Ensure GITHUB_REPO_URL is clean (no https://, no trailing /) - CORRECTED LOGIC
-            if GITHUB_REPO_URL.startswith("https://"):
-                clean_repo_url = GITHUB_REPO_URL.split("://")[1]
-            else:
-                clean_repo_url = GITHUB_REPO_URL
-            clean_repo_url = clean_repo_url.rstrip('/') # Remove trailing slash if present
+            # Construct the authenticated URL (ensure no trailing slash)
+            repo_path = GITHUB_REPO_URL.rstrip('/')
+            authenticated_repo_url = f"https://{github_pat}@{repo_path}"
+            print(f"Attempting git clone with URL (PAT masked): https://*****@{repo_path}")
 
-            # Construct the authenticated URL
-            authenticated_repo_url = f"https://{github_pat}@{clean_repo_url}"
+            # Define the git clone command
+            git_command = ["git", "clone", "--quiet", authenticated_repo_url, repo_dir]
+            print(f"Executing command: {' '.join(git_command[:3])} ******** {git_command[-1]}")
 
-            print(f"Attempting to clone from URL (PAT masked): https://*****@{clean_repo_url}")
-            print(f"Cloning repository {clean_repo_url} into {repo_dir}...")
-            # Clone using the corrected URL and disable terminal prompts
-            cloned_repo = Repo.clone_from(authenticated_repo_url, repo_dir, env={'GIT_TERMINAL_PROMPT': '0'}, progress=None)
-            print("Repository cloned successfully.")
+            # Execute the command using subprocess
+            env = os.environ.copy()
+            env['GIT_TERMINAL_PROMPT'] = '0' # Prevent interactive prompts
+            process = subprocess.run(git_command, capture_output=True, text=True, check=False, env=env)
 
-            # --- 4. Apply Changes ---
+            # Check for errors during clone
+            if process.returncode != 0:
+                print(f"ERROR: git clone failed with exit code {process.returncode}")
+                print(f"stderr: {process.stderr}")
+                print(f"stdout: {process.stdout}")
+                clone_error_detail = process.stderr.strip()
+                if not clone_error_detail: clone_error_detail = f"Git exit code {process.returncode}"
+                # Provide the exact error message to the user
+                return f"Κρίσιμο σφάλμα κατά την κλωνοποίηση του repository: {clone_error_detail}"
+
+            print("Repository cloned successfully using subprocess.")
+
+            # --- 4. Apply Changes (using GitPython on the cloned repo) ---
+            cloned_repo = Repo(repo_dir) # Open the cloned repo
             changed_files = []
+            # ... (Rest of file modification logic - same as before) ...
             for file_path, new_content in modification_plan.items():
                 if ".." in file_path or file_path.startswith("/"):
                      print(f"WARNING: Skipping potentially unsafe file path from LLM: {file_path}")
                      continue
-
                 normalized_file_path = os.path.join(*file_path.split('/'))
                 target_file = os.path.join(cloned_repo.working_tree_dir, normalized_file_path)
-
                 print(f"Applying changes to: {target_file}")
                 os.makedirs(os.path.dirname(target_file), exist_ok=True)
                 with open(target_file, 'w', encoding='utf-8') as f:
@@ -219,12 +207,13 @@ def execute_code_modification(instruction):
             if not changed_files:
                 return "Δεν πραγματοποιήθηκαν αλλαγές (ίσως λόγω μη έγκυρων paths από το AI)."
 
-            # --- 5. Commit & Push ---
+
+            # --- 5. Commit & Push (using GitPython) ---
+            # ... (Rest of commit/push logic - same as before) ...
             if cloned_repo.is_dirty(untracked_files=True):
                 print("Changes detected. Staging, committing, and pushing...")
                 committer = Actor("Ecko Agent (via GCF)", f"{GITHUB_USER}+gcf@users.noreply.github.com")
-
-                cloned_repo.git.add(update=True) # Stage modified files
+                cloned_repo.git.add(update=True)
                 for file_path in changed_files:
                     normalized_file_path = os.path.join(*file_path.split('/'))
                     full_path = os.path.join(cloned_repo.working_tree_dir, normalized_file_path)
@@ -235,28 +224,23 @@ def execute_code_modification(instruction):
                          print(f"Warning: File {full_path} intended for modification not found after write, cannot stage.")
 
                 commit_message = f"Automated code modification by Ecko: {instruction}"
-                if len(commit_message) > 72:
-                    commit_message = commit_message[:69] + "..."
+                if len(commit_message) > 72: commit_message = commit_message[:69] + "..."
 
                 if cloned_repo.index.diff("HEAD") or cloned_repo.untracked_files:
                     print("Staged changes found, proceeding with commit.")
                     cloned_repo.index.commit(commit_message, author=committer, committer=committer)
                     print("Changes committed locally.")
-
                     origin = cloned_repo.remote(name='origin')
                     print(f"Pushing to remote branch 'main': {origin.url}")
                     push_info = origin.push(refspec='HEAD:main')
                     print("Push command executed.")
-
                     push_failed = False
                     for info in push_info:
                         if info.flags & (info.ERROR | info.REJECTED | info.REMOTE_REJECTED | info.REMOTE_FAILURE):
                             print(f"ERROR/REJECTION during push: Flags={info.flags}, Summary={info.summary}")
                             push_failed = True
-                    if push_failed:
-                        return f"Σφάλμα: Οι αλλαγές έγιναν commit, αλλά απέτυχε το push στο GitHub. Ελέγξτε τα logs της Cloud Function για λεπτομέρειες."
-
-                    return f"Επιτυχής τροποποίηση! Οι αλλαγές ({', '.join(changed_files)}) στάλθηκαν στο GitHub και θα εφαρμοστούν σύντομα."
+                    if push_failed: return f"Σφάλμα: Οι αλλαγές έγιναν commit, αλλά απέτυχε το push στο GitHub. Ελέγξτε τα logs."
+                    return f"Επιτυχής τροποποίηση! Οι αλλαγές ({', '.join(changed_files)}) στάλθηκαν στο GitHub."
                 else:
                      print("No changes staged for commit after add.")
                      return "Δεν εντοπίστηκαν αλλαγές προς αποστολή (ίσως τα αρχεία ήταν ήδη ενημερωμένα)."
@@ -267,40 +251,23 @@ def execute_code_modification(instruction):
     except Exception as e:
         print(f"ERROR during code modification execution: {e}")
         traceback.print_exc()
-        # Give a more informative error message including the Git command details if possible
-        error_details = str(e)
-        if isinstance(e, SystemExit): # Catch potential Git errors
-             if hasattr(e, 'stderr'): error_details += f" stderr: '{e.stderr}'"
-             if hasattr(e, 'stdout'): error_details += f" stdout: '{e.stdout}'"
-        return f"Κρίσιμο σφάλμα κατά την προσπάθεια τροποποίησης: {error_details}"
+        # Return the specific error message caught
+        return f"Κρίσιμο σφάλμα κατά την προσπάθεια τροποποίησης: {e}"
 
 
 # --- Main HTTP Cloud Function ---
 @functions_framework.http
 def ecko_main(request):
     """HTTP Cloud Function entry point."""
-
-    # --- CORS Preflight Handling ---
+    # ... (CORS and Initialization checks remain the same) ...
     if request.method == 'OPTIONS':
-        headers = {
-            'Access-Control-Allow-Origin': '*', # Be more specific in production
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
-            'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Max-Age': '3600'
-        }
+        headers = {'Access-Control-Allow-Origin': '*','Access-Control-Allow-Methods': 'POST, OPTIONS','Access-Control-Allow-Headers': 'Content-Type','Access-Control-Max-Age': '3600'}
         return ('', 204, headers)
-
-    # --- CORS Headers for Actual Response ---
-    cors_headers = {
-        'Access-Control-Allow-Origin': '*' # Be more specific in production
-    }
-
-    # --- Check for Initialization Errors ---
+    cors_headers = {'Access-Control-Allow-Origin': '*'}
     if not db or not model:
          print("ERROR: Initialization failed (db or model). Function cannot proceed.")
          return (json.dumps({"error": "Internal server error during initialization."}), 500, cors_headers)
 
-    # --- Handle POST Request ---
     if request.method == 'POST':
         try:
             request_json = request.get_json(silent=True)
@@ -310,33 +277,29 @@ def ecko_main(request):
 
             user_message = request_json['message'].strip()
             print(f"Received message: {user_message}")
-
-            ecko_response = "Συνέβη ένα απρόσμενο σφάλμα κατά την επεξεργασία." # Default error response
+            ecko_response = "Συνέβη ένα απρόσμενο σφάλμα κατά την επεξεργασία."
 
             # --- Logic Processing ---
             modification_trigger = "Ecko, modify code: "
             if user_message.lower().startswith(modification_trigger.lower()):
+                # ... (Modification logic remains the same, calling execute_code_modification) ...
                 instruction = user_message[len(modification_trigger):].strip()
                 if instruction:
                     print(f"Modification instruction received: '{instruction}'")
-                    add_to_conversation_history(user_message, 'user') # Log user command
+                    add_to_conversation_history(user_message, 'user')
                     ecko_response = execute_code_modification(instruction)
-                    add_to_conversation_history(ecko_response, 'model') # Log result (success or error)
+                    add_to_conversation_history(ecko_response, 'model')
                 else:
                     ecko_response = "Παρακαλώ δώσε μια συγκεκριμένη οδηγία τροποποίησης μετά τη φράση-κλειδί."
                     print("Received empty modification instruction.")
             else:
-                # Normal conversation flow
+                # ... (Normal conversation logic remains the same) ...
                 add_to_conversation_history(user_message, 'user')
                 conversation_history = get_conversation_history()
-
                 try:
                     print(f"Starting chat with history (length: {len(conversation_history)})...")
                     chat = model.start_chat(history=conversation_history)
-                    llm_api_response = chat.send_message(
-                        Part.from_text(user_message),
-                        generation_config=generation_config,
-                    )
+                    llm_api_response = chat.send_message(Part.from_text(user_message), generation_config=generation_config)
                     ecko_response = llm_api_response.text
                     print(f"LLM chat response received successfully: '{ecko_response[:100]}...'")
                     add_to_conversation_history(ecko_response, 'model')
@@ -344,7 +307,6 @@ def ecko_main(request):
                     print(f"Error during LLM communication: {llm_error}")
                     traceback.print_exc()
                     ecko_response = "Συγγνώμη, αντιμετώπισα ένα πρόβλημα κατά την προσπάθεια να σου απαντήσω."
-                    # Add the error response to history so user sees it
                     add_to_conversation_history(ecko_response, 'model')
 
             print(f"Sending final response (200 OK): '{ecko_response[:100]}...'")
@@ -354,8 +316,6 @@ def ecko_main(request):
             print(f"Critical error processing POST request: {e}")
             traceback.print_exc()
             return (json.dumps({"error": "An internal server error occurred."}), 500, cors_headers)
-
-    # --- Handle other methods (GET, etc.) ---
     else:
         print(f"Method not allowed: {request.method}")
         return (json.dumps({"error": "Method Not Allowed"}), 405, cors_headers)
