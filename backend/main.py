@@ -16,7 +16,7 @@ import traceback
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
 REGION = "us-central1"
-MODEL_NAME = "gemini-2.5-flash-preview-04-17"
+MODEL_NAME = "gemini-1.5-flash"
 GITHUB_REPO_URL = "github.com/Ecko-the-agent/genesis.git" # Base URL
 GITHUB_USER = "Ecko-the-agent"
 GITHUB_PAT_ENV_VAR_NAME = "GITHUB_PAT_VALUE"
