@@ -1,6 +1,6 @@
 Flask
 functions-framework
 google-generativeai
-#google-cloud-secretmanager 
-# google-cloud-firestore θα προστεθεί αργότερα
+google-cloud-firestore # <-- ΠΡΟΣΘΗΚΗ
+#google-cloud-secretmanager # Παραμένει σχόλιο
 # GitPython θα προστεθεί αργότερα
