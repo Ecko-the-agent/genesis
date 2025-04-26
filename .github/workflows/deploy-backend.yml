@@ -3,18 +3,18 @@ name: Deploy Ecko Backend to GCF
 on:
   push:
     branches:
-      - main
+      - main # Trigger deployment on push to main branch
     paths:
-      - 'backend/**'
-      - '.github/workflows/deploy-backend.yml'
-  workflow_dispatch:
+      - 'backend/**' # Only run if files in backend/ change
+      - '.github/workflows/deploy-backend.yml' # Also run if this workflow changes
+  workflow_dispatch: # Allow manual trigger from GitHub UI
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: 'read'
-      id-token: 'write'
+      id-token: 'write' # Required for Workload Identity Federation or SA key auth
 
     steps:
     - name: Checkout code
@@ -23,43 +23,47 @@ jobs:
     - name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v2'
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY }}'
+        credentials_json: '${{ secrets.GCP_SA_KEY }}' # Use the Service Account key stored in secrets
 
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
 
-    # ---- Διάβασε το Gemini Key (παραμένει ίδιο) ----
-    - name: Get Gemini API Key from Secret Manager
+    # ---- Διάβασε και ΚΑΘΑΡΙΣΕ το Gemini Key ----
+    - name: Get and Clean Gemini API Key from Secret Manager
       id: get_gemini_key
       run: |
-        # Χρησιμοποίησε --format='get(payload.data)' για να πάρεις μόνο τα data
-        SECRET_VALUE=$(gcloud secrets versions access latest --secret="${{ secrets.GCP_GEMINI_API_KEY_SECRET_NAME }}" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
-        echo "Fetched Gemini secret value (masked)"
+        RAW_SECRET_VALUE=$(gcloud secrets versions access latest --secret="${{ secrets.GCP_GEMINI_API_KEY_SECRET_NAME }}" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
+        echo "Raw Gemini Key fetched (masked first/last chars): ${RAW_SECRET_VALUE:0:1}*****${RAW_SECRET_VALUE: -1}"
+        # Καθάρισε πιθανά artifacts της echo -n '...'
+        # Αντικαθιστά το "-n '" στην αρχή και το τελικό "'" μαζί με τυχόν κενά/carriage returns
+        CLEANED_SECRET_VALUE=$(echo "$RAW_SECRET_VALUE" | sed -e "s/^-n '//" -e "s/'[[:space:]]*$//")
+        echo "Cleaned Gemini Key (masked): ${CLEANED_SECRET_VALUE:0:1}*****"
         # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
-        echo "GEMINI_KEY_VALUE=$SECRET_VALUE" >> $GITHUB_ENV
+        echo "GEMINI_KEY_VALUE=$CLEANED_SECRET_VALUE" >> $GITHUB_ENV
 
-    # ---- ΝΕΟ ΒΗΜΑ: Διάβασε το GitHub PAT ----
-    - name: Get GitHub PAT from Secret Manager
+    # ---- Διάβασε και ΚΑΘΑΡΙΣΕ το GitHub PAT ----
+    - name: Get and Clean GitHub PAT from Secret Manager
       id: get_github_pat
       run: |
-        # Χρησιμοποίησε το όνομα του secret από τα GitHub secrets
         PAT_SECRET_NAME="${{ secrets.GCP_GITHUB_PAT_SECRET_NAME }}"
         echo "Fetching GitHub PAT from secret: $PAT_SECRET_NAME"
-        # Χρησιμοποίησε --format='get(payload.data)'
-        PAT_VALUE=$(gcloud secrets versions access latest --secret="$PAT_SECRET_NAME" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
-        echo "Fetched GitHub PAT value (masked)"
+        RAW_PAT_VALUE=$(gcloud secrets versions access latest --secret="$PAT_SECRET_NAME" --project="${{ secrets.GCP_PROJECT_ID }}" --format='get(payload.data)' | base64 --decode)
+        echo "Raw GitHub PAT fetched (masked first/last chars): ${RAW_PAT_VALUE:0:1}*****${RAW_PAT_VALUE: -1}"
+        # Εφάρμοσε την ίδια λογική καθαρισμού
+        CLEANED_PAT_VALUE=$(echo "$RAW_PAT_VALUE" | sed -e "s/^-n '//" -e "s/'[[:space:]]*$//")
+        echo "Cleaned GitHub PAT (masked): ${CLEANED_PAT_VALUE:0:1}*****"
         # Κάνε το διαθέσιμο ως environment variable για το επόμενο βήμα
-        echo "GITHUB_PAT_FETCHED_VALUE=$PAT_VALUE" >> $GITHUB_ENV
-
+        echo "GITHUB_PAT_FETCHED_VALUE=$CLEANED_PAT_VALUE" >> $GITHUB_ENV
 
     # ---- Deploy ----
     - name: Deploy Cloud Function
       env:
-          # Πέρνα και τα δύο κλειδιά που διαβάστηκαν
+          # Πέρνα και τα δύο ΚΑΘΑΡΙΣΜΕΝΑ κλειδιά
           FETCHED_GEMINI_KEY: ${{ env.GEMINI_KEY_VALUE }}
-          FETCHED_GITHUB_PAT: ${{ env.GITHUB_PAT_FETCHED_VALUE }} # <-- Το νέο PAT
+          FETCHED_GITHUB_PAT: ${{ env.GITHUB_PAT_FETCHED_VALUE }} # <-- Χρησιμοποιεί την καθαρισμένη τιμή
       run: |
-        # ΠΡΟΣΟΧΗ στα εισαγωγικά γύρω από τις τιμές των env vars!
+        # ΠΡΟΣΟΧΗ: Βεβαιώσου ότι τα ονόματα των env vars ταιριάζουν με αυτά που περιμένει το main.py (GEMINI_API_KEY, GITHUB_PAT_VALUE)
+        # Χρησιμοποίησε διπλά εισαγωγικά γύρω από το `--set-env-vars` και μονά γύρω από τις τιμές για να αποφύγεις θέματα με ειδικούς χαρακτήρες
         gcloud functions deploy ecko-http-function \
           --gen2 \
           --region=us-central1 \
@@ -69,7 +73,7 @@ jobs:
           --entry-point=ecko_main \
           --trigger-http \
           --allow-unauthenticated \
-          --set-env-vars="GCP_PROJECT=${{ secrets.GCP_PROJECT_ID }},GEMINI_API_KEY=${FETCHED_GEMINI_KEY},GITHUB_PAT_VALUE=${FETCHED_GITHUB_PAT}" `# <-- Προσθήκη GITHUB_PAT_VALUE` \
+          --set-env-vars="GCP_PROJECT='${{ secrets.GCP_PROJECT_ID }}',GEMINI_API_KEY='${FETCHED_GEMINI_KEY}',GITHUB_PAT_VALUE='${FETCHED_GITHUB_PAT}'" \
           --max-instances=1
 
     # ---- Βήμα για το URL (παραμένει ίδιο) ----
