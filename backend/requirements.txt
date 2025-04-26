@@ -1,7 +1,3 @@
 Flask
+Flask-Cors
 functions-framework
-google-generativeai
-google-cloud-firestore
-Flask-Cors # <-- ΝΕΑ ΠΡΟΣΘΗΚΗ
-#google-cloud-secretmanager # Παραμένει σχόλιο
-# GitPython θα προστεθεί αργότερα
