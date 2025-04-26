@@ -1,0 +1,26 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+pip-wheel-metadata/
+*.egg-info/
+dist/
+build/
+
+# Google Cloud
+gcp-credentials.json
+.gcloud/
+
+# IDE / Editor specific
+.idea/
+.vscode/
+*.swp
+*~
+
+# Operating System files
+.DS_Store
+Thumbs.db

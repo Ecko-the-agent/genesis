@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ecko Interface</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <h1>Ecko</h1>
+    <div id="chatbox">
+        <p><strong>Ecko:</strong> Γεια σου! Είμαι ο Ecko. Ρώτα με κάτι.</p>
+    </div>
+    <input type="text" id="userInput" placeholder="Γράψε εδώ..." aria-label="User input">
+    <button id="sendButton" onclick="sendMessage()">Αποστολή</button>
+    <div id="loading" style="display: none;">Περιμένετε...</div>
+
+    <script src="script.js"></script>
+</body>
+</html>

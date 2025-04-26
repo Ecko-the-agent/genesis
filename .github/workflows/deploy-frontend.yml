@@ -1,0 +1,37 @@
+name: Deploy Ecko Frontend to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main # Trigger deployment on push to main branch
+    paths:
+      - 'frontend/**' # Only run if files in frontend/ change
+      - '.github/workflows/deploy-frontend.yml' # Run if this workflow changes
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  pages: write # Allow writing to GitHub Pages
+  id-token: write # Needed for deployment actions
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # Output the deployed URL
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './frontend' # Deploy contents of the frontend/ directory
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
