@@ -7,6 +7,7 @@ import google.generativeai as genai # <-- Προστέθηκε ξανά
 
 print("--- Python script starting (No Flask - Full Logic - Top Level) ---")
 
+ 
 # --- Configuration ---
 PROJECT_ID = os.environ.get("GCP_PROJECT", "projectgenesis-457923")
 CONVERSATION_COLLECTION = 'conversations'
