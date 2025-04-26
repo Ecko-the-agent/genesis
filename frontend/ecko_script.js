@@ -1,6 +1,6 @@
 // --- CONFIGURATION ---
 // Το σωστό URL της Cloud Function σου
-const ECKO_BACKEND_URL = 'https://ecko-http-function-p2bsy3odya-ew.a.run.app';
+const ECKO_BACKEND_URL = 'https://ecko-http-function-p2bsy3odya-uc.a.run.app';
 
 // --- DOM Elements ---
 const chatbox = document.getElementById('chatbox');
