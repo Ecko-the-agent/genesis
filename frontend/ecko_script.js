@@ -100,7 +100,7 @@ document.addEventListener('DOMContentLoaded', (event) => {
         }
     });
 
-    // Add event listener to the button
+    // Add event listener to the button programmatically
     sendButton.addEventListener('click', sendMessage);
 
     // Initial focus on input field

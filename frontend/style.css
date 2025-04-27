@@ -1,55 +1,78 @@
 body {
     font-family: sans-serif;
-    max-width: 600px;
+    max-width: 700px; /* Increased width slightly */
     margin: 20px auto;
-    padding: 15px;
+    padding: 20px; /* Increased padding */
     border: 1px solid #ccc;
     border-radius: 8px;
     background-color: #f9f9f9;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 40px); /* Try to use more vertical space */
+    box-sizing: border-box;
 }
 
 h1 {
     text-align: center;
     color: #333;
+    margin-top: 0; /* Remove default top margin */
 }
 
-#chatbox {
-    height: 400px;
+#chatbox { /* Matches the corrected ID in index.html */
+    flex-grow: 1; /* Allow chatbox to take available space */
     overflow-y: auto;
     border: 1px solid #ddd;
-    padding: 10px;
-    margin-bottom: 10px;
+    padding: 15px; /* Increased padding */
+    margin-bottom: 15px; /* Increased margin */
     background-color: #fff;
+    border-radius: 4px; /* Added border radius */
 }
 
 #chatbox p {
-    margin: 5px 0;
-    line-height: 1.4;
+    margin: 8px 0; /* Adjusted margin */
+    line-height: 1.5; /* Slightly increased line height */
+    word-wrap: break-word; /* Ensure long words break */
 }
 
-#userInput {
-    width: calc(100% - 80px); /* Adjust width considering button */
-    padding: 10px;
-    margin-right: 5px;
+.input-area {
+    display: flex;
+    margin-top: auto; /* Push input area to the bottom */
+}
+
+#userInput { /* Matches the corrected ID in index.html */
+    flex-grow: 1; /* Allow input to take available space */
+    padding: 12px; /* Increased padding */
+    margin-right: 10px; /* Increased margin */
     border: 1px solid #ccc;
     border-radius: 4px;
+    font-size: 1em; /* Ensure consistent font size */
 }
 
-#sendButton {
-    padding: 10px 15px;
+#sendButton { /* Matches the corrected ID in index.html */
+    padding: 12px 20px; /* Adjusted padding */
     cursor: pointer;
     border: none;
     background-color: #007bff;
     color: white;
     border-radius: 4px;
+    font-size: 1em;
+    white-space: nowrap; /* Prevent button text wrapping */
 }
 
 #sendButton:hover {
     background-color: #0056b3;
 }
 
-#loading {
-    margin-top: 10px;
+#sendButton:disabled { /* Style for disabled button */
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+
+#loading { /* Matches the corrected ID in index.html */
+    padding: 10px; /* Added padding */
     text-align: center;
     color: #555;
+    min-height: 1.5em; /* Reserve space for loading text */
+    /* display: none; is set inline in HTML */
 }
