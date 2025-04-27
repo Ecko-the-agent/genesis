@@ -1,95 +1,109 @@
 // --- CONFIGURATION ---
-// Το σωστό URL της Cloud Function σου
-const ECKO_BACKEND_URL = 'https://ecko-http-function-p2bsy3odya-uc.a.run.app';
+const ECKO_BACKEND_URL = 'https://ecko-http-function-p2bsy3odya-uc.a.run.app/ecko';
 
-// --- DOM Elements ---
-const chatbox = document.getElementById('chatbox');
-const userInput = document.getElementById('userInput');
-const sendButton = document.getElementById('sendButton');
-const loadingIndicator = document.getElementById('loading');
+// Wait for the HTML document to be fully loaded before running the script logic
+document.addEventListener('DOMContentLoaded', (event) => {
 
-// --- Functions ---
+    // Get references to elements AFTER the DOM is ready
+    const chatbox = document.getElementById('chatbox');
+    const userInput = document.getElementById('userInput');
+    const sendButton = document.getElementById('sendButton');
+    const loadingIndicator = document.getElementById('loading');
 
-/**
- * Προσθέτει ένα μήνυμα στο chatbox.
- * @param {string} sender - Ο αποστολέας ('Εσύ', 'Ecko', 'System').
- * @param {string} message - Το περιεχόμενο του μηνύματος.
- */
-function addMessage(sender, message) {
-    const p = document.createElement('p');
-    // Απλή απολύμανση για να αποφευχθεί βασική εισαγωγή HTML από την απάντηση
-    // Αντικαθιστά < με < και > με >
-    const sanitizedMessage = message.replace(/</g, "<").replace(/>/g, ">");
-    p.innerHTML = `<strong>${sender}:</strong> ${sanitizedMessage}`;
-    chatbox.appendChild(p);
-    chatbox.scrollTop = chatbox.scrollHeight; // Κύλιση προς τα κάτω
-}
+    // Check if elements were found (basic validation)
+    if (!chatbox || !userInput || !sendButton || !loadingIndicator) {
+        console.error("Error: One or more required HTML elements not found!");
+        // Optionally display an error message to the user
+        // const body = document.querySelector('body');
+        // if (body) body.innerHTML = "<p>Error loading chat interface. Required elements missing.</p>";
+        return; // Stop script execution if elements are missing
+    }
 
-/**
- * Στέλνει το μήνυμα του χρήστη στο backend και εμφανίζει την απάντηση.
- */
-async function sendMessage() {
-    const message = userInput.value.trim();
-    if (!message) return; // Αν το μήνυμα είναι κενό, μην κάνεις τίποτα
 
-    // --- ΑΦΑΙΡΕΘΗΚΕ Ο ΠΕΡΙΤΤΟΣ ΕΛΕΓΧΟΣ IF ΑΠΟ ΕΔΩ ---
+    function addMessage(sender, message) {
+        const p = document.createElement('p');
+        p.style.whiteSpace = 'pre-wrap';
+        p.innerHTML = `<strong>${sender}:</strong> `;
 
-    addMessage('Εσύ', message); // Εμφάνισε το μήνυμα του χρήστη
-    userInput.value = ''; // Καθάρισε το πεδίο εισαγωγής
-    sendButton.disabled = true; // Απενεργοποίησε το κουμπί αποστολής
-    loadingIndicator.style.display = 'block'; // Εμφάνισε την ένδειξη φόρτωσης
+        const messageText = document.createTextNode(message);
+        p.appendChild(messageText);
 
-    try {
-        // Στείλε το αίτημα στο backend
-        const response = await fetch(ECKO_BACKEND_URL, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            // Στείλε το μήνυμα μέσα σε ένα JSON αντικείμενο
-            body: JSON.stringify({ message: message }),
-        });
+        chatbox.appendChild(p);
+        chatbox.scrollTop = chatbox.scrollHeight;
+    }
 
-        // Έλεγχος αν η απάντηση HTTP ήταν επιτυχής (π.χ. 200 OK)
-        if (!response.ok) {
-            // Αν όχι, δημιούργησε ένα σφάλμα με την κατάσταση HTTP
-            throw new Error(`HTTP error! status: ${response.status}`);
+    async function sendMessage() {
+        const message = userInput.value.trim();
+        if (!message) return;
+
+        if (!ECKO_BACKEND_URL) {
+            addMessage('System', 'Το URL του backend δεν έχει οριστεί ακόμα στο ecko_script.js.');
+            userInput.value = '';
+            return;
         }
 
-        // Αν η απάντηση ήταν ΟΚ, πάρε τα δεδομένα JSON
-        const data = await response.json();
+        addMessage('Εσύ', message);
+        userInput.value = '';
+        sendButton.disabled = true;
+        loadingIndicator.textContent = 'Ο Ecko σκέφτεται...';
+        loadingIndicator.style.display = 'block';
 
-        // Έλεγχος αν υπάρχει η απάντηση μέσα στα δεδομένα
-        if (data && data.response) {
-           addMessage('Ecko', data.response); // Εμφάνισε την απάντηση του Ecko
-        } else {
-           addMessage('System', 'Λήφθηκε μη αναμενόμενη απάντηση από τον Ecko.');
+        try {
+            const response = await fetch(ECKO_BACKEND_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: message }),
+                mode: 'cors'
+            });
+
+            if (!response.ok) {
+                let errorMsg = `HTTP error! status: ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMsg += ` - ${errorData.error || 'No error details'}`;
+                } catch (e) {
+                    // Ignore
+                }
+                throw new Error(errorMsg);
+            }
+
+            const data = await response.json();
+            addMessage('Ecko', data.response);
+
+            if (data.modification_status) {
+                addMessage('System', `Modification Status: ${data.modification_status}`);
+                if (data.modification_details) {
+                    addMessage('System', `Details: ${data.modification_details}`);
+                }
+                if (data.modification_status.includes("Success")) {
+                    addMessage("System", "Οι αλλαγές κώδικα εφαρμόστηκαν. Ίσως χρειαστεί να ανανεώσετε τη σελίδα (F5) μετά την ολοκλήρωση του deployment για να δείτε τις αλλαγές στο UI.");
+                }
+            }
+
+        } catch (error) {
+            console.error('Error sending message:', error);
+            addMessage('System', `Σφάλμα επικοινωνίας με τον Ecko: ${error.message}`);
+        } finally {
+            sendButton.disabled = false;
+            loadingIndicator.style.display = 'none';
+            loadingIndicator.textContent = 'Περιμένετε...';
+            userInput.focus(); // Now this should work as userInput is guaranteed to exist
         }
-
-    } catch (error) {
-        // Αν συνέβη οποιοδήποτε σφάλμα (δικτύου ή επεξεργασίας)
-        console.error('Error sending message:', error);
-        // Εμφάνισε ένα μήνυμα σφάλματος στο chatbox
-        addMessage('System', `Σφάλμα επικοινωνίας με τον Ecko: ${error.message}`);
-    } finally {
-        // Αυτό εκτελείται ΠΑΝΤΑ, είτε με επιτυχία είτε με σφάλμα
-        sendButton.disabled = false; // Ενεργοποίησε ξανά το κουμπί
-        loadingIndicator.style.display = 'none'; // Κρύψε την ένδειξη φόρτωσης
     }
-}
 
-// --- Event Listeners ---
+    // Allow sending message with Enter key
+    userInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            sendMessage();
+        }
+    });
 
-// Επιτρέπει την αποστολή μηνύματος πατώντας το Enter στο πεδίο εισαγωγής
-userInput.addEventListener('keypress', function (e) {
-    if (e.key === 'Enter') {
-        sendMessage();
-    }
-});
+    // Add event listener to the button
+    sendButton.addEventListener('click', sendMessage);
 
-// Προσθήκη event listener και στο κουμπί (παρόλο που υπάρχει και το onclick στο HTML)
-// για καλή πρακτική, αν και το onclick θα δουλέψει.
-// sendButton.addEventListener('click', sendMessage);
+    // Initial focus on input field
+    userInput.focus();
 
-// Αρχικό μήνυμα καλωσορίσματος (προαιρετικό, μπορεί να μπει και στο HTML)
-// addMessage('System', 'Έτοιμος για εντολές.');
+}); // End of DOMContentLoaded listener
