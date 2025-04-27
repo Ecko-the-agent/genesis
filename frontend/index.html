@@ -1,32 +1,21 @@
 <!DOCTYPE html>
-<html lang="el">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- Ας βάλουμε έναν απλό τίτλο προς το παρόν -->
-    <title>Ecko is Alive!</title>
-    <!-- Σωστή αναφορά στο style.css -->
+    <title>Ecko Chat</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <!-- Ας βάλουμε έναν απλό τίτλο προς το παρόν -->
-    <h1>Ecko is Alive!</h1>
-
-    <!-- Διορθωμένα IDs για να ταιριάζουν με το JS -->
+    <h1>Project_Genesis</h1>
     <div id="chatbox">
-        <!-- Αρχικό μήνυμα του Ecko -->
-         <p><strong>Ecko:</strong> Γεια σου! Είμαι ο Ecko v1.0. Μπορώ να θυμάμαι τη συζήτησή μας και να τροποποιώ τον κώδικά μου! Πες μου τι θες ή δώσε μου μια εντολή τροποποίησης (π.χ., 'Ecko, modify code: άλλαξε τον τίτλο στο index.html σε "Ecko is alive!"').</p>
-        <!-- Τα μηνύματα συνομιλίας θα εμφανιστούν εδώ -->
+        <!-- Chat messages will appear here -->
     </div>
-
-    <!-- Διορθωμένα IDs και προσθήκη loading -->
-    <div class="input-area">
-        <input type="text" id="userInput" placeholder="Γράψε εδώ..." aria-label="User input">
-        <button id="sendButton">Αποστολή</button>
+    <div id="inputArea">
+        <input type="text" id="userInput" placeholder="Type your message...">
+        <button id="sendButton">Send</button>
+        <div id="loading" style="display: none;">Loading...</div>
     </div>
-    <div id="loading" style="display: none;">Περιμένετε...</div>
-
-    <!-- Σωστή αναφορά στο ecko_script.js -->
     <script src="ecko_script.js"></script>
 </body>
 </html>
