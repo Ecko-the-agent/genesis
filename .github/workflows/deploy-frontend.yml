@@ -10,17 +10,14 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  # Το frontend job τρέχει ΜΟΝΟ αφού πετύχει το backend job
   deploy_frontend_job:
-    # --- ΕΞΑΡΤΗΣΗ από το backend job ---
-    needs: deploy_backend_job # Το ID του job από το deploy-backend.yml
+    needs: deploy_backend_job
     runs-on: ubuntu-latest
-    # --- Minimal Permissions Required (ΟΧΙ variables) ---
     permissions:
       contents: read
-      pages: write        # Για GitHub Pages deployment
-      id-token: write     # Για GitHub Pages deployment (OIDC)
-      actions: read       # Απαιτείται για download-artifact από *άλλο* workflow run (αν και εδώ είναι στο ίδιο run, καλό είναι να υπάρχει)
+      pages: write
+      id-token: write
+      actions: read
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -28,35 +25,50 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- Download URL Artifact ---
       - name: Download Backend URL Artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-url-artifact # Το ίδιο όνομα artifact
-          # path: . # Προαιρετικό, κατεβάζει στο workspace root
+          name: backend-url-artifact
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Inject Backend URL into Javascript
+      - name: Inject Backend URL into Javascript (Debug Enhanced)
         run: |
-          # --- Ανάγνωση του URL από το κατεβασμένο αρχείο ---
+          # --- Βήμα 1: Έλεγχος περιεχομένου Artifact ---
+          echo "--- Verifying artifact content ---"
           if [ ! -f backend_url.txt ]; then
             echo "Error: backend_url.txt artifact not found!" >&2
             exit 1
           fi
+          echo "Content of backend_url.txt:"
+          cat backend_url.txt
+          echo "" # Νέα γραμμή για ευκρίνεια
+          echo "--- End artifact content ---"
+
+          # --- Ανάγνωση του URL από το κατεβασμένο αρχείο ---
           BACKEND_URL=$(cat backend_url.txt)
           if [ -z "$BACKEND_URL" ]; then
             echo "Error: backend_url.txt is empty!" >&2
             exit 1
           fi
 
-          echo "Injecting backend URL: $BACKEND_URL"
-          # Χρήση του BACKEND_URL που διαβάστηκε από το αρχείο
+          # --- Βήμα 2: Έλεγχος πριν και μετά το sed ---
+          echo "Value read into BACKEND_URL variable: $BACKEND_URL" # Τύπωσε την τιμή της μεταβλητής
+          echo "Running sed command on frontend/ecko_script.js..."
           sed -i "s|__BACKEND_URL_PLACEHOLDER__|$BACKEND_URL|g" frontend/ecko_script.js
-          echo "Placeholder replaced in frontend/ecko_script.js"
-          echo "--- Verifying replacement (head of file): ---"
-          head -n 10 frontend/ecko_script.js
+          SED_EXIT_CODE=$? # Αποθήκευση του exit code του sed
+          echo "sed command finished with exit code: $SED_EXIT_CODE"
+
+          if [ $SED_EXIT_CODE -ne 0 ]; then
+             echo "ERROR: sed command failed!" >&2
+             # Ας μην κάνουμε exit 1 ακόμα, για να δούμε το head
+             # exit 1
+          fi
+
+          echo "Placeholder replacement attempt finished."
+          echo "--- Verifying replacement in frontend/ecko_script.js (head of file): ---"
+          head -n 15 frontend/ecko_script.js # Τύπωσε τις πρώτες 15 γραμμές
           echo "--- End verification ---"
 
       - name: Upload artifact for GitHub Pages
