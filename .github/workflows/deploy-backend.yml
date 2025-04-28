@@ -8,83 +8,58 @@ on:
       - 'backend/**'
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: # Allow manual trigger
-  # Optional: Trigger after successful tests
-  # workflow_run:
-  #   workflows: ["Run Backend Tests"] # Assuming a test workflow named "Run Backend Tests"
-  #   types:
-  #     - completed
-  #   branches: [ main ]
+
+# Permissions ορίζονται πλέον μόνο σε επίπεδο job παρακάτω
 
 
 jobs:
-  # Optional: Wait for tests if using workflow_run trigger
-  # wait_for_tests:
-  #   if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Tests passed
-  #       run: echo "Tests completed successfully, proceeding with deployment."
-
   deploy:
-    # needs: [wait_for_tests] # Uncomment if using workflow_run trigger and tests job
     runs-on: ubuntu-latest
+    # Permissions ορισμένα εδώ για το deploy job
     permissions:
       contents: 'read'
       id-token: 'write' # Required for Workload Identity Federation
       variables: 'write' # Required to set the ECKO_BACKEND_URL variable
-
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    # --- Authentication to GCP (WIF Recommended) ---
-    # ===> Confirmation: Uses WIF parameters and corresponding secrets <===
     - id: 'auth'
       name: Authenticate to Google Cloud
       uses: 'google-github-actions/auth@v2'
       with:
-        # --- Configure WIF details using GitHub Secrets ---
-        # Note: Ensure secrets GCP_PROJECT_NUMBER, GCP_WIF_POOL_ID, GCP_WIF_PROVIDER_ID, GCP_SA_EMAIL are correctly set in GitHub repo secrets.
         workload_identity_provider: 'projects/${{ secrets.GCP_PROJECT_NUMBER }}/locations/global/workloadIdentityPools/${{ secrets.GCP_WIF_POOL_ID }}/providers/${{ secrets.GCP_WIF_PROVIDER_ID }}'
-        service_account: '${{ secrets.GCP_SA_EMAIL }}' # Service Account email
+        service_account: '${{ secrets.GCP_SA_EMAIL }}'
 
     - name: Set up Cloud SDK
       uses: 'google-github-actions/setup-gcloud@v2'
       with:
         project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-    # --- Deploy Cloud Function Gen2 ---
-    # ===> Confirmation: Uses --gen2, required flags, ^##^ delimiter, and includes COMMIT_AUTHOR_EMAIL <===
     - name: Deploy Ecko HTTP Function
       id: deploy
       run: |
         echo "Deploying ecko-http-function..."
-        # Use ^##^ as delimiter for set-env-vars for robustness against special characters
         gcloud functions deploy ecko-http-function \
           --gen2 \
           --region=${{ vars.GCP_REGION || 'us-central1' }} \
           --runtime=python311 \
           --source=./backend \
-          --entry-point=ecko_main `# The function in main.py decorated with @functions_framework.http` \
+          --entry-point=ecko_main \
           --trigger-http \
-          --allow-unauthenticated `# Allows direct invocation. NOTE: Authentication is enforced within the application logic (main.py @require_auth)` \
-          --memory=${{ vars.GCF_MEMORY || '1GiB' }} `# Use variable or default` \
-          --timeout=${{ vars.GCF_TIMEOUT || '540s' }} `# Use variable or default (Increased timeout)` \
-          --max-instances=${{ vars.GCF_MAX_INSTANCES || '2' }} `# Use variable or default` \
+          --allow-unauthenticated \
+          --memory=${{ vars.GCF_MEMORY || '1GiB' }} \
+          --timeout=${{ vars.GCF_TIMEOUT || '540s' }} \
+          --max-instances=${{ vars.GCF_MAX_INSTANCES || '2' }} \
           --project=${{ secrets.GCP_PROJECT_ID }} \
-          --service-account=${{ secrets.GCP_SA_EMAIL }} `# Run function as this SA` \
+          --service-account=${{ secrets.GCP_SA_EMAIL }} \
           --set-env-vars=^##^GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}##GCP_GITHUB_PAT_SECRET_NAME=${{ secrets.GCP_GITHUB_PAT_SECRET_NAME }}##GITHUB_REPO_OWNER=${{ github.repository_owner }}##GITHUB_REPO_NAME=${{ github.event.repository.name }}##ECKO_SHARED_SECRET=${{ secrets.ECKO_SHARED_SECRET }}##LOG_LEVEL=INFO##PYTHONUNBUFFERED=1##ALLOWED_ORIGIN=https://${{ github.repository_owner }}.github.io##COMMIT_AUTHOR_EMAIL=${{ secrets.COMMIT_AUTHOR_EMAIL }}
-          # Note: The PAT itself is NOT passed here. Backend code retrieves it using SA permissions.
 
-    # --- Get Function URL ---
-    # ===> Confirmation: Uses gcloud describe with --format and retries <===
     - name: Get Function URL
       id: get_url
       run: |
         echo "Retrieving function URL..."
-        # Add retries as URL might take a moment to become available after deploy command finishes
         for i in {1..5}; do
-          # Query for the HTTPS trigger URL specifically
           URL=$(gcloud functions describe ecko-http-function --gen2 --project=${{ secrets.GCP_PROJECT_ID }} --region=${{ vars.GCP_REGION || 'us-central1' }} --format='value(serviceConfig.uri)' 2>/dev/null)
           if [ -n "$URL" ]; then
             echo "Function URL retrieved: $URL"
@@ -97,11 +72,9 @@ jobs:
         echo "Error: Failed to retrieve function URL after multiple attempts." >&2
         exit 1
 
-    # --- Set Repository Variable with Function URL ---
-    # ===> Confirmation: Uses gh variable set <===
     - name: Set ECKO_BACKEND_URL Repository Variable
       env:
-        GH_TOKEN: ${{ github.token }} # Use built-in token for variable setting
+        GH_TOKEN: ${{ github.token }}
         FUNCTION_URL: ${{ steps.get_url.outputs.url }}
       run: |
         if [ -z "$FUNCTION_URL" ]; then
@@ -109,11 +82,9 @@ jobs:
           exit 1
         fi
         echo "Setting ECKO_BACKEND_URL repository variable..."
-        # Use gh cli to set the variable at the repository level
         gh variable set ECKO_BACKEND_URL --body "$FUNCTION_URL" --repo "$GITHUB_REPOSITORY"
         echo "Repository variable ECKO_BACKEND_URL set."
 
-    # --- Display Reminder ---
     - name: Display Information
       run: |
         echo "======================================================================="
