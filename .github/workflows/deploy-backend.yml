@@ -9,14 +9,16 @@ on:
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: # Allow manual trigger
 
+# --- Permissions ορισμένα σε επίπεδο Workflow ---
+permissions:
+  contents: 'read'
+  id-token: 'write'   # Required for Workload Identity Federation
+  variables: 'write'  # Required to set the ECKO_BACKEND_URL variable
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # --- Permissions ορισμένα στο Job (ΕΠΑΝΑΦΕΡΘΗΚΕ το variables: write) ---
-    permissions:
-      contents: 'read'
-      id-token: 'write' # Required for Workload Identity Federation
-      variables: 'write' # <<< ΕΠΑΝΑΦΕΡΘΗΚΕ - Required to set the ECKO_BACKEND_URL variable
+    # --- ΟΧΙ permissions block εδώ πλέον ---
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -70,7 +72,6 @@ jobs:
         exit 1
 
     - name: Set ECKO_BACKEND_URL Repository Variable
-      # Τώρα θα πρέπει να έχει το permission για να τρέξει σωστά
       env:
         GH_TOKEN: ${{ github.token }}
         FUNCTION_URL: ${{ steps.get_url.outputs.url }}
@@ -81,10 +82,10 @@ jobs:
         fi
         echo "Setting ECKO_BACKEND_URL repository variable..."
         gh variable set ECKO_BACKEND_URL --body "$FUNCTION_URL" --repo "$GITHUB_REPOSITORY"
-        # Ο έλεγχος σφάλματος εδώ είναι λιγότερο κρίσιμος τώρα που δώσαμε το permission
         if [ $? -ne 0 ]; then
-           echo "ERROR: Failed to set ECKO_BACKEND_URL variable despite having permission!" >&2
-           exit 1 # Αποτυχία αν η εντολή gh αποτύχει
+           echo "ERROR: Failed to set ECKO_BACKEND_URL variable!" >&2
+           # Αποτυχία αν η εντολή gh αποτύχει, τώρα που περιμένουμε να έχουμε το permission
+           exit 1
         else
            echo "Repository variable ECKO_BACKEND_URL set successfully."
         fi
