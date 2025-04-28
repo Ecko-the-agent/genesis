@@ -10,16 +10,17 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  deploy:
+  # Το frontend job τρέχει ΜΟΝΟ αφού πετύχει το backend job
+  deploy_frontend_job:
+    # --- ΝΕΑ ΕΞΑΡΤΗΣΗ ---
+    needs: deploy_backend_job # Το ID του job από το deploy-backend.yml
     runs-on: ubuntu-latest
-    # --- Πιο Πλήρη Permissions ορισμένα στο Job ---
+    # --- Minimal Permissions Required ---
     permissions:
-      contents: read      # Για checkout και ανάγνωση vars
+      contents: read
       pages: write        # Για GitHub Pages deployment
       id-token: write     # Για GitHub Pages deployment (OIDC)
-      actions: 'read'      # Για διάβασμα actions status (γενικό)
-      deployments: 'write' # Για δημιουργία deployment event (μέσω deploy-pages)
-      variables: read     # Για ανάγνωση ECKO_BACKEND_URL Variable
+      # actions: read     # ΔΕΝ χρειάζεται για download-artifact από το ίδιο run
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -27,17 +28,33 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # --- ΝΕΟ ΒΗΜΑ: Download URL Artifact ---
+      - name: Download Backend URL Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-url-artifact # Το ίδιο όνομα artifact που ορίστηκε στο backend workflow
+          # Το path όπου θα κατέβει το αρχείο (προεπιλογή η ρίζα του workspace)
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
       - name: Inject Backend URL into Javascript
         run: |
-          if [ -z "${{ vars.ECKO_BACKEND_URL }}" ]; then
-            echo "Error: ECKO_BACKEND_URL variable is not set or not accessible. Deploy backend first." >&2
-            exit 1 # Αποτυχία αν η μεταβλητή λείπει
+          # --- Ανάγνωση του URL από το κατεβασμένο αρχείο ---
+          if [ ! -f backend_url.txt ]; then
+            echo "Error: backend_url.txt artifact not found!" >&2
+            exit 1
           fi
-          echo "Injecting backend URL: ${{ vars.ECKO_BACKEND_URL }}"
-          sed -i "s|__BACKEND_URL_PLACEHOLDER__|${{ vars.ECKO_BACKEND_URL }}|g" frontend/ecko_script.js
+          BACKEND_URL=$(cat backend_url.txt)
+          if [ -z "$BACKEND_URL" ]; then
+            echo "Error: backend_url.txt is empty!" >&2
+            exit 1
+          fi
+
+          echo "Injecting backend URL: $BACKEND_URL"
+          # Χρήση του BACKEND_URL που διαβάστηκε από το αρχείο
+          # Προσοχή στα ειδικά σύμβολα στο URL, χρήση διαφορετικού delimiter στο sed (|)
+          sed -i "s|__BACKEND_URL_PLACEHOLDER__|$BACKEND_URL|g" frontend/ecko_script.js
           echo "Placeholder replaced in frontend/ecko_script.js"
           echo "--- Verifying replacement (head of file): ---"
           head -n 10 frontend/ecko_script.js

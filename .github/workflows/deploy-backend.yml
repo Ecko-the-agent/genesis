@@ -10,15 +10,14 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  deploy:
+  # Μετονομάσαμε το job ID για σαφήνεια στην εξάρτηση
+  deploy_backend_job:
     runs-on: ubuntu-latest
-    # --- Πιο Πλήρη Permissions ορισμένα στο Job ---
+    # --- Minimal Permissions Required ---
     permissions:
-      contents: 'read'       # Για checkout
-      id-token: 'write'      # Για GCP WIF Auth
-      actions: 'read'        # Για διάβασμα actions status (γενικό)
-      deployments: 'read'  # Για διάβασμα deployment status (γενικό)
-      variables: 'write'     # Για ορισμό ECKO_BACKEND_URL Variable
+      contents: 'read'
+      id-token: 'write' # Για GCP WIF Auth
+      # actions: 'write' # ΔΕΝ χρειάζεται για upload-artifact
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -62,7 +61,9 @@ jobs:
           URL=$(gcloud functions describe ecko-http-function --gen2 --project=${{ secrets.GCP_PROJECT_ID }} --region=${{ vars.GCP_REGION || 'us-central1' }} --format='value(serviceConfig.uri)' 2>/dev/null)
           if [ -n "$URL" ]; then
             echo "Function URL retrieved: $URL"
-            echo "url=$URL" >> $GITHUB_OUTPUT
+            # Αποθήκευση του URL σε αρχείο αντί για output μεταβλητή
+            echo -n "$URL" > backend_url.txt
+            echo "URL saved to backend_url.txt"
             exit 0
           fi
           echo "Attempt $i: Function URL not available yet, waiting 10 seconds..."
@@ -71,29 +72,20 @@ jobs:
         echo "Error: Failed to retrieve function URL after multiple attempts." >&2
         exit 1
 
-    - name: Set ECKO_BACKEND_URL Repository Variable
-      env:
-        GH_TOKEN: ${{ github.token }}
-        FUNCTION_URL: ${{ steps.get_url.outputs.url }}
-      run: |
-        if [ -z "$FUNCTION_URL" ]; then
-          echo "Error: Function URL is empty, cannot set repository variable." >&2
-          exit 1
-        fi
-        echo "Setting ECKO_BACKEND_URL repository variable..."
-        gh variable set ECKO_BACKEND_URL --body "$FUNCTION_URL" --repo "$GITHUB_REPOSITORY"
-        if [ $? -ne 0 ]; then
-           echo "ERROR: Failed to set ECKO_BACKEND_URL variable!" >&2
-           exit 1
-        else
-           echo "Repository variable ECKO_BACKEND_URL set successfully."
-        fi
+    # --- ΝΕΟ ΒΗΜΑ: Upload URL Artifact ---
+    - name: Upload Backend URL Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-url-artifact # Όνομα του artifact
+        path: backend_url.txt # Το αρχείο που περιέχει το URL
+
+    # --- ΑΦΑΙΡΕΘΗΚΕ: το βήμα Set Repository Variable ---
 
     - name: Display Information
       run: |
         echo "======================================================================="
         echo "Backend deployment finished."
-        echo "Function URL: ${{ steps.get_url.outputs.url }}"
-        echo "Repository variable 'ECKO_BACKEND_URL' should now be set."
-        echo "The frontend deployment workflow will use this variable."
+        # Το URL δεν είναι πλέον άμεσα διαθέσιμο ως output, αλλά υπάρχει στο artifact
+        echo "Backend URL saved in artifact 'backend-url-artifact'."
+        echo "Frontend workflow will use this artifact."
         echo "======================================================================="
