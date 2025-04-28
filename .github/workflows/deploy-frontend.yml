@@ -12,12 +12,14 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # --- Permissions ορισμένα στο Job, ΑΛΛΑ ΧΩΡΙΣ το variables: read ---
+    # --- Πιο Πλήρη Permissions ορισμένα στο Job ---
     permissions:
-      contents: read
-      pages: write      # Needed for GitHub Pages deployment
-      id-token: write   # Needed for GitHub Pages deployment (OIDC)
-      # variables: read   # ΑΦΑΙΡΕΘΗΚΕ ΠΡΟΣΩΡΙΝΑ ΓΙΑ DEBUG
+      contents: read      # Για checkout και ανάγνωση vars
+      pages: write        # Για GitHub Pages deployment
+      id-token: write     # Για GitHub Pages deployment (OIDC)
+      actions: 'read'      # Για διάβασμα actions status (γενικό)
+      deployments: 'write' # Για δημιουργία deployment event (μέσω deploy-pages)
+      variables: read     # Για ανάγνωση ECKO_BACKEND_URL Variable
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -29,23 +31,17 @@ jobs:
         uses: actions/configure-pages@v4
 
       - name: Inject Backend URL into Javascript
-        # Αυτό το βήμα μπορεί τώρα να αποτύχει αν το variables: read ήταν όντως απαραίτητο.
-        # Αλλά πρώτα θέλουμε να δούμε αν το workflow ξεκινάει καν.
         run: |
           if [ -z "${{ vars.ECKO_BACKEND_URL }}" ]; then
-            echo "Error: ECKO_BACKEND_URL variable is not set. Deploy backend first." >&2
-            # Έξοδος με σφάλμα 0 για να μην αποτύχει όλο το workflow αν απλά δεν υπάρχει η μεταβλητή,
-            # αλλά έξοδος με σφάλμα 1 αν η μεταβλητή λείπει και το permission ήταν απαραίτητο.
-            # Προσωρινά θα το αφήσουμε να προχωρήσει ακόμη κι αν λείπει, για να τεστάρουμε τη σύνταξη.
-            echo "Warning: ECKO_BACKEND_URL is empty or not accessible." # Changed to warning for test
-          else
-            echo "Injecting backend URL: ${{ vars.ECKO_BACKEND_URL }}"
-            sed -i "s|__BACKEND_URL_PLACEHOLDER__|${{ vars.ECKO_BACKEND_URL }}|g" frontend/ecko_script.js
-            echo "Placeholder replaced in frontend/ecko_script.js"
-            echo "--- Verifying replacement (head of file): ---"
-            head -n 10 frontend/ecko_script.js
-            echo "--- End verification ---"
+            echo "Error: ECKO_BACKEND_URL variable is not set or not accessible. Deploy backend first." >&2
+            exit 1 # Αποτυχία αν η μεταβλητή λείπει
           fi
+          echo "Injecting backend URL: ${{ vars.ECKO_BACKEND_URL }}"
+          sed -i "s|__BACKEND_URL_PLACEHOLDER__|${{ vars.ECKO_BACKEND_URL }}|g" frontend/ecko_script.js
+          echo "Placeholder replaced in frontend/ecko_script.js"
+          echo "--- Verifying replacement (head of file): ---"
+          head -n 10 frontend/ecko_script.js
+          echo "--- End verification ---"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

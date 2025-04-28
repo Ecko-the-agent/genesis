@@ -9,16 +9,16 @@ on:
       - '.github/workflows/deploy-backend.yml'
   workflow_dispatch: # Allow manual trigger
 
-# --- Permissions ορισμένα σε επίπεδο Workflow ---
-permissions:
-  contents: 'read'
-  id-token: 'write'   # Required for Workload Identity Federation
-  variables: 'write'  # Required to set the ECKO_BACKEND_URL variable
-
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # --- ΟΧΙ permissions block εδώ πλέον ---
+    # --- Πιο Πλήρη Permissions ορισμένα στο Job ---
+    permissions:
+      contents: 'read'       # Για checkout
+      id-token: 'write'      # Για GCP WIF Auth
+      actions: 'read'        # Για διάβασμα actions status (γενικό)
+      deployments: 'read'  # Για διάβασμα deployment status (γενικό)
+      variables: 'write'     # Για ορισμό ECKO_BACKEND_URL Variable
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -84,7 +84,6 @@ jobs:
         gh variable set ECKO_BACKEND_URL --body "$FUNCTION_URL" --repo "$GITHUB_REPOSITORY"
         if [ $? -ne 0 ]; then
            echo "ERROR: Failed to set ECKO_BACKEND_URL variable!" >&2
-           # Αποτυχία αν η εντολή gh αποτύχει, τώρα που περιμένουμε να έχουμε το permission
            exit 1
         else
            echo "Repository variable ECKO_BACKEND_URL set successfully."
