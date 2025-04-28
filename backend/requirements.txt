@@ -1,3 +1,25 @@
+# Core Application Dependencies
+Flask>=3.0.0 # Allow newer Flask 3.x
+GitPython>=3.1.0 # Keep GitPython pinned
+functions-framework>=3.0.0 # Keep Functions Framework pinned
+requests>=2.20.0 # Keep requests relatively recent
+
+# Google Cloud & AI Dependencies (Allowing more flexibility)
+google-cloud-aiplatform>=1.80.0 # Pin Vertex AI SDK reasonably
+google-cloud-firestore # Removed specific pin
+google-cloud-logging # Removed specific pin
+google-cloud-secret-manager # Removed specific pin
+google-cloud-storage # Removed specific pin
+google-auth>=2.0.0 # Allow newer google-auth
+
+# Dependencies that often cause conflicts (let pip resolve)
+# google-api-core # Removed specific pin
+# googleapis-common-protos # Removed specific pin
+# protobuf # Removed specific pin
+# grpcio # Removed specific pin
+# grpcio-status # Removed specific pin
+
+# Other dependencies from the original file (kept as they were)
 annotated-types==0.7.0
 blinker==1.9.0
 cachetools==5.5.2
@@ -9,28 +31,15 @@ colorama==0.4.6
 Deprecated==1.2.18
 deprecation==2.1.0
 docstring_parser==0.16
-Flask==3.1.0
-functions-framework==3.8.2
 gitdb==4.0.12
-GitPython==3.1.44
-google-api-core==2.24.2
-google-auth==2.39.0
-google-cloud-aiplatform==1.90.0
 google-cloud-appengine-logging==1.6.1
 google-cloud-audit-log==0.3.2
 google-cloud-bigquery==3.31.0
 google-cloud-core==2.4.3
-google-cloud-firestore==2.20.2
-google-cloud-logging==3.12.1
 google-cloud-resource-manager==1.14.2
-google-cloud-secret-manager==2.23.3
-google-cloud-storage==2.19.0
 google-crc32c==1.7.1
 google-resumable-media==2.7.2
-googleapis-common-protos==1.70.0
 grpc-google-iam-v1==0.14.2
-grpcio==1.64.1
-grpcio-status==1.64.1
 idna==3.10
 importlib_metadata==8.6.1
 iniconfig==2.1.0
@@ -42,7 +51,6 @@ opentelemetry-api==1.32.1
 packaging==25.0
 pluggy==1.5.0
 proto-plus==1.26.1
-protobuf==4.25.3
 pyasn1==0.6.1
 pyasn1_modules==0.4.2
 pydantic==2.11.3
@@ -51,7 +59,6 @@ pytest==8.3.5
 pytest-mock==3.14.0
 python-dateutil==2.9.0.post0
 pytz==2025.2
-requests==2.32.3
 rsa==4.9.1
 shapely==2.1.0
 six==1.17.0
