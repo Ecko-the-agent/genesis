@@ -10,14 +10,14 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 jobs:
-  # Μετονομάσαμε το job ID για σαφήνεια στην εξάρτηση
+  # Μετονομάστηκε το job ID για σαφήνεια στην εξάρτηση
   deploy_backend_job:
     runs-on: ubuntu-latest
-    # --- Minimal Permissions Required ---
+    # --- Minimal Permissions Required (ΟΧΙ variables:write) ---
     permissions:
       contents: 'read'
       id-token: 'write' # Για GCP WIF Auth
-      # actions: 'write' # ΔΕΝ χρειάζεται για upload-artifact
+      actions: 'write'  # Απαιτείται για upload-artifact
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -61,7 +61,7 @@ jobs:
           URL=$(gcloud functions describe ecko-http-function --gen2 --project=${{ secrets.GCP_PROJECT_ID }} --region=${{ vars.GCP_REGION || 'us-central1' }} --format='value(serviceConfig.uri)' 2>/dev/null)
           if [ -n "$URL" ]; then
             echo "Function URL retrieved: $URL"
-            # Αποθήκευση του URL σε αρχείο αντί για output μεταβλητή
+            # Αποθήκευση του URL σε αρχείο
             echo -n "$URL" > backend_url.txt
             echo "URL saved to backend_url.txt"
             exit 0
@@ -72,20 +72,18 @@ jobs:
         echo "Error: Failed to retrieve function URL after multiple attempts." >&2
         exit 1
 
-    # --- ΝΕΟ ΒΗΜΑ: Upload URL Artifact ---
+    # --- Upload URL Artifact ---
     - name: Upload Backend URL Artifact
       uses: actions/upload-artifact@v4
       with:
         name: backend-url-artifact # Όνομα του artifact
         path: backend_url.txt # Το αρχείο που περιέχει το URL
-
-    # --- ΑΦΑΙΡΕΘΗΚΕ: το βήμα Set Repository Variable ---
+        retention-days: 1 # Κράτα το artifact μόνο για 1 μέρα
 
     - name: Display Information
       run: |
         echo "======================================================================="
         echo "Backend deployment finished."
-        # Το URL δεν είναι πλέον άμεσα διαθέσιμο ως output, αλλά υπάρχει στο artifact
         echo "Backend URL saved in artifact 'backend-url-artifact'."
         echo "Frontend workflow will use this artifact."
         echo "======================================================================="

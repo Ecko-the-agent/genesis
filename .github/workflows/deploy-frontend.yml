@@ -12,15 +12,15 @@ on:
 jobs:
   # Το frontend job τρέχει ΜΟΝΟ αφού πετύχει το backend job
   deploy_frontend_job:
-    # --- ΝΕΑ ΕΞΑΡΤΗΣΗ ---
+    # --- ΕΞΑΡΤΗΣΗ από το backend job ---
     needs: deploy_backend_job # Το ID του job από το deploy-backend.yml
     runs-on: ubuntu-latest
-    # --- Minimal Permissions Required ---
+    # --- Minimal Permissions Required (ΟΧΙ variables) ---
     permissions:
       contents: read
       pages: write        # Για GitHub Pages deployment
       id-token: write     # Για GitHub Pages deployment (OIDC)
-      # actions: read     # ΔΕΝ χρειάζεται για download-artifact από το ίδιο run
+      actions: read       # Απαιτείται για download-artifact από *άλλο* workflow run (αν και εδώ είναι στο ίδιο run, καλό είναι να υπάρχει)
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -28,12 +28,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # --- ΝΕΟ ΒΗΜΑ: Download URL Artifact ---
+      # --- Download URL Artifact ---
       - name: Download Backend URL Artifact
         uses: actions/download-artifact@v4
         with:
-          name: backend-url-artifact # Το ίδιο όνομα artifact που ορίστηκε στο backend workflow
-          # Το path όπου θα κατέβει το αρχείο (προεπιλογή η ρίζα του workspace)
+          name: backend-url-artifact # Το ίδιο όνομα artifact
+          # path: . # Προαιρετικό, κατεβάζει στο workspace root
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -53,14 +53,13 @@ jobs:
 
           echo "Injecting backend URL: $BACKEND_URL"
           # Χρήση του BACKEND_URL που διαβάστηκε από το αρχείο
-          # Προσοχή στα ειδικά σύμβολα στο URL, χρήση διαφορετικού delimiter στο sed (|)
           sed -i "s|__BACKEND_URL_PLACEHOLDER__|$BACKEND_URL|g" frontend/ecko_script.js
           echo "Placeholder replaced in frontend/ecko_script.js"
           echo "--- Verifying replacement (head of file): ---"
           head -n 10 frontend/ecko_script.js
           echo "--- End verification ---"
 
-      - name: Upload artifact
+      - name: Upload artifact for GitHub Pages
         uses: actions/upload-pages-artifact@v3
         with:
           path: './frontend'
