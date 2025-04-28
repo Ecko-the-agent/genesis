@@ -28,7 +28,32 @@ document.addEventListener('DOMContentLoaded', () => {
         passwordSubmitBtn, passwordError, mainContainer, fileContentDisplay;
 
     // --- Helper Functions ---
-    const logger = (msg, type = 'info') => console[type](`[EckoFE][${type.toUpperCase()}] ${msg}`);
+    // const logger = (msg, type = 'info') => console[type](`[EckoFE][${type.toUpperCase()}] ${msg}`); // <--- ΠΑΛΙΑ ΕΚΔΟΣΗ ΜΕ ΤΟ ΣΦΑΛΜΑ
+
+    // --- ΔΙΟΡΘΩΜΕΝΗ ΕΚΔΟΣΗ ---
+    const logger = (msg, type = 'info') => {
+        const formattedMsg = `[EckoFE][${type.toUpperCase()}] ${msg}`;
+        switch (type.toLowerCase()) {
+            case 'error':
+                console.error(formattedMsg);
+                break;
+            case 'warn':
+            case 'warning': // Επιτρέπει και το 'warning'
+                console.warn(formattedMsg);
+                break;
+            case 'info':
+                console.info(formattedMsg); // Χρησιμοποιεί info για 'info'
+                break;
+            case 'debug':
+                console.debug(formattedMsg); // Χρησιμοποιεί debug για 'debug'
+                break;
+            default:
+                // Για όλους τους άλλους τύπους (π.χ., 'api', 'auth', 'init', 'sse') χρησιμοποιεί console.log
+                console.log(formattedMsg);
+        }
+    };
+    // --- ΤΕΛΟΣ ΔΙΟΡΘΩΜΕΝΗΣ ΕΚΔΟΣΗΣ ---
+
     const showLoading = (el, msg = 'Loading...') => { if (el) { el.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${msg}`; el.style.display = 'flex'; } };
     const hideLoading = (el) => { if (el) el.style.display = 'none'; };
     const scrollToBottom = (el) => { if (el) el.scrollTop = el.scrollHeight; };
@@ -228,7 +253,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // If response was OK, but parsing failed earlier, return status info
             if (response.ok && responseData === null && rawResponseText !== null) {
-                 logger.info("API call OK, but response was not valid JSON. Returning status.");
+                 logger("API call OK, but response was not valid JSON. Returning status.", "info");
                  return { _raw: rawResponseText, _status: response.status };
             }
 
