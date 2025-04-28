@@ -2,73 +2,83 @@
 name: Deploy Ecko Frontend (Genesis 2.0)
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - 'frontend/**'
-      - '.github/workflows/deploy-frontend.yml'
-  workflow_dispatch: # Allow manual trigger
+  # --- ΕΝΕΡΓΟΠΟΙΗΣΗ ΜΟΝΟ ΟΤΑΝ ΤΕΛΕΙΩΣΕΙ ΤΟ BACKEND WORKFLOW ---
+  workflow_run:
+    # Το όνομα του backend workflow ΠΡΕΠΕΙ να ταιριάζει ακριβώς
+    workflows: ["Deploy Ecko Backend (Genesis 2.0)"]
+    types:
+      - completed # Τρέξε μόνο όταν ολοκληρωθεί
+    branches: [ main ] # Προαιρετικό: Τρέξε μόνο αν το backend έτρεξε στο main
+  # Κρατάμε και το χειροκίνητο trigger
+  workflow_dispatch:
 
 jobs:
   deploy_frontend_job:
-    needs: deploy_backend_job
+    # --- ΕΚΤΕΛΕΣΗ ΜΟΝΟ ΑΝ ΤΟ BACKEND WORKFLOW ΠΕΤΥΧΕ ---
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pages: write
       id-token: write
-      actions: read
+      actions: read # Απαιτείται για download-artifact από workflow_run
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Download Backend URL Artifact
+      # --- Download Artifact from the COMPLETED Backend Workflow Run ---
+      - name: Download Backend URL Artifact from triggering run
         uses: actions/download-artifact@v4
         with:
-          name: backend-url-artifact
+          name: backend-url-artifact # Το όνομα του artifact που ανέβασε το backend
+          # Λήψη του artifact από το συγκεκριμένο run που μας ενεργοποίησε
+          run-id: ${{ github.event.workflow_run.id }}
+          path: . # Λήψη στον τρέχοντα φάκελο
+
+      # --- Checkout code AFTER downloading artifact ---
+      # Χρειαζόμαστε τον κώδικα για το sed και το Pages deployment
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Κάνε checkout το commit που ενεργοποίησε το backend run, για συνέπεια
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
-      - name: Inject Backend URL into Javascript (Debug Enhanced)
+      - name: Inject Backend URL into Javascript
         run: |
-          # --- Βήμα 1: Έλεγχος περιεχομένου Artifact ---
           echo "--- Verifying artifact content ---"
           if [ ! -f backend_url.txt ]; then
-            echo "Error: backend_url.txt artifact not found!" >&2
+            echo "Error: backend_url.txt artifact not found from triggering workflow run!" >&2
             exit 1
           fi
           echo "Content of backend_url.txt:"
           cat backend_url.txt
-          echo "" # Νέα γραμμή για ευκρίνεια
+          echo ""
           echo "--- End artifact content ---"
 
-          # --- Ανάγνωση του URL από το κατεβασμένο αρχείο ---
           BACKEND_URL=$(cat backend_url.txt)
           if [ -z "$BACKEND_URL" ]; then
             echo "Error: backend_url.txt is empty!" >&2
             exit 1
           fi
 
-          # --- Βήμα 2: Έλεγχος πριν και μετά το sed ---
-          echo "Value read into BACKEND_URL variable: $BACKEND_URL" # Τύπωσε την τιμή της μεταβλητής
+          echo "Value read into BACKEND_URL variable: $BACKEND_URL"
           echo "Running sed command on frontend/ecko_script.js..."
+          # Χρήση διαφορετικού delimiter για το sed λόγω πιθανών '/' στο URL
           sed -i "s|__BACKEND_URL_PLACEHOLDER__|$BACKEND_URL|g" frontend/ecko_script.js
-          SED_EXIT_CODE=$? # Αποθήκευση του exit code του sed
+          SED_EXIT_CODE=$?
           echo "sed command finished with exit code: $SED_EXIT_CODE"
 
           if [ $SED_EXIT_CODE -ne 0 ]; then
              echo "ERROR: sed command failed!" >&2
-             # Ας μην κάνουμε exit 1 ακόμα, για να δούμε το head
-             # exit 1
+             exit 1
           fi
 
           echo "Placeholder replacement attempt finished."
           echo "--- Verifying replacement in frontend/ecko_script.js (head of file): ---"
-          head -n 15 frontend/ecko_script.js # Τύπωσε τις πρώτες 15 γραμμές
+          head -n 15 frontend/ecko_script.js
           echo "--- End verification ---"
 
       - name: Upload artifact for GitHub Pages
