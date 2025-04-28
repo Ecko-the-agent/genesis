@@ -18,7 +18,7 @@ GCP_PROJECT_ID = os.environ.get("GCP_PROJECT_ID")
 REGION = os.environ.get("GCP_REGION", "us-central1")
 
 # --- Vertex AI Settings ---
-MODEL_NAME = os.environ.get("VERTEX_MODEL_NAME", "gemini-2.5-flash-preview-04-17") # Updated to a recommended model
+MODEL_NAME = os.environ.get("VERTEX_MODEL_NAME", "gemini-2.5-flash-preview-04-17") # Updated model name (check availability)
 GENERATION_CONFIG_CHAT = {"temperature": 0.7, "max_output_tokens": 2048}
 # Increased max_output_tokens for plan generation to accommodate potentially larger outputs
 GENERATION_CONFIG_PLAN = {"temperature": 0.15, "max_output_tokens": 8192} # Low temp for JSON/code/patches
@@ -26,7 +26,8 @@ GENERATION_CONFIG_ANALYZE = {"temperature": 0.4, "max_output_tokens": 4096}
 
 # --- Firestore Settings ---
 FIRESTORE_COLLECTION = os.environ.get("FIRESTORE_COLLECTION", "conversations")
-CONVERSATION_DOC_ID = os.environ.get("CONVERSATION_DOC_ID", "main_chat_history_v2")
+# Changed CONVERSATION_DOC_ID default for clarity, ensure it matches credentials if needed
+CONVERSATION_DOC_ID = os.environ.get("CONVERSATION_DOC_ID", "main_chat_history_v3")
 HISTORY_LIMIT = 30 # Number of messages to fetch for context
 
 # --- GitHub Settings ---
@@ -52,6 +53,25 @@ LOG_QUERY_PREFIX = f"{AGENT_NAME.lower()}, show logs:"
 DEPLOY_PREFIX = f"{AGENT_NAME.lower()}, deploy:"
 STATUS_PREFIX = f"{AGENT_NAME.lower()}, status:"
 LEGACY_MODIFY_PREFIX = f"{AGENT_NAME.lower()}, modify code:" # Support old command
+
+# ===> START: Added Surgical Operation Constants <===
+# --- Surgical Operation Constants ---
+# Define the specific operations the LLM can request in its plan
+OP_REPLACE_ENTIRE_FILE = "replace_entire_file"
+OP_CREATE_FILE = "create_file"
+OP_INSERT_LINES = "insert_lines"
+OP_DELETE_LINES = "delete_lines"
+OP_REPLACE_LINES = "replace_lines"
+
+# List of allowed operations for validation
+ALLOWED_OPS = [
+    OP_REPLACE_ENTIRE_FILE,
+    OP_CREATE_FILE,
+    OP_INSERT_LINES,
+    OP_DELETE_LINES,
+    OP_REPLACE_LINES,
+]
+# ===> END: Added Surgical Operation Constants <===
 
 # --- Security Configuration ---
 # ECKO_SHARED_SECRET_ENV_VAR name itself is not secret
