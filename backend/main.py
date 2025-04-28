@@ -10,6 +10,7 @@ from flask import Flask, request, jsonify, make_response # Removed Response impo
 # --- Import Project Modules ---
 # Ensure config is imported first if it configures logging
 import config
+# Use relative imports for modules within the same package (backend)
 from . import gcp_ops
 from . import github_api
 from . import git_ops
@@ -406,7 +407,8 @@ def ecko_chat_route():
             else: body, code = {"error": "Status target unclear ('backend' or 'frontend')."}, 400
         else:
             # Normal Chat - generate response
-            body, code = llm_interface.generate_chat_response(firestore_ops.get_conversation_history(), msg)
+            history = firestore_ops.get_conversation_history()
+            body, code = llm_interface.generate_chat_response(history, msg)
             if code == 200 and "response" in body:
                  firestore_ops.add_to_conversation_history(config.AGENT_NAME, body.get("response", "(empty AI response)"))
             elif "error" in body:
@@ -552,4 +554,9 @@ if __name__ == '__main__':
     if not os.environ.get("ALLOWED_ORIGIN"):
          logger.warning("WARNING: Environment variable ALLOWED_ORIGIN is not set. CORS may fail depending on browser.")
 
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 8080)), debug=True)
+    # Use PORT environment variable for Cloud Run compatibility, default to 8080
+    port = int(os.environ.get('PORT', 8080))
+    # Note: Setting debug=True is generally not recommended for production environments
+    # It's often better to rely on Cloud Logging for debugging in deployed environments.
+    # Keep debug=False for deployed versions. It's okay for local testing.
+    app.run(host='0.0.0.0', port=port, debug=os.environ.get("FLASK_DEBUG", "False").lower() == "true")
