@@ -12,11 +12,11 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # --- Permissions ορισμένα στο Job, ΑΛΛΑ ΧΩΡΙΣ το variables: write ---
+    # --- Permissions ορισμένα στο Job (ΕΠΑΝΑΦΕΡΘΗΚΕ το variables: write) ---
     permissions:
       contents: 'read'
       id-token: 'write' # Required for Workload Identity Federation
-      # variables: 'write' # ΑΦΑΙΡΕΘΗΚΕ ΠΡΟΣΩΡΙΝΑ ΓΙΑ DEBUG
+      variables: 'write' # <<< ΕΠΑΝΑΦΕΡΘΗΚΕ - Required to set the ECKO_BACKEND_URL variable
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -70,8 +70,7 @@ jobs:
         exit 1
 
     - name: Set ECKO_BACKEND_URL Repository Variable
-      # Αυτό το βήμα μπορεί τώρα να αποτύχει αν το variables: write ήταν όντως απαραίτητο.
-      # Αλλά πρώτα θέλουμε να δούμε αν το workflow προχωράει μέχρι εδώ.
+      # Τώρα θα πρέπει να έχει το permission για να τρέξει σωστά
       env:
         GH_TOKEN: ${{ github.token }}
         FUNCTION_URL: ${{ steps.get_url.outputs.url }}
@@ -80,23 +79,21 @@ jobs:
           echo "Error: Function URL is empty, cannot set repository variable." >&2
           exit 1
         fi
-        echo "Attempting to set ECKO_BACKEND_URL repository variable (permission might be missing)..."
-        # Δοκιμάζουμε να το τρέξουμε ούτως ή άλλως
+        echo "Setting ECKO_BACKEND_URL repository variable..."
         gh variable set ECKO_BACKEND_URL --body "$FUNCTION_URL" --repo "$GITHUB_REPOSITORY"
-        # Ελέγχουμε αν απέτυχε η προηγούμενη εντολή
+        # Ο έλεγχος σφάλματος εδώ είναι λιγότερο κρίσιμος τώρα που δώσαμε το permission
         if [ $? -ne 0 ]; then
-           echo "Warning: Failed to set ECKO_BACKEND_URL variable. This might be due to missing 'variables: write' permission."
-           # Δεν κάνουμε exit 1 εδώ για να δούμε αν το υπόλοιπο workflow τρέχει
+           echo "ERROR: Failed to set ECKO_BACKEND_URL variable despite having permission!" >&2
+           exit 1 # Αποτυχία αν η εντολή gh αποτύχει
         else
-           echo "Repository variable ECKO_BACKEND_URL set command executed." # Δεν εγγυάται επιτυχία αν λείπουν permissions
+           echo "Repository variable ECKO_BACKEND_URL set successfully."
         fi
-
 
     - name: Display Information
       run: |
         echo "======================================================================="
-        echo "Backend deployment finished attempt."
-        echo "Function URL obtained: ${{ steps.get_url.outputs.url }}"
-        echo "Check repository variables manually to see if ECKO_BACKEND_URL was set."
-        echo "The frontend deployment workflow will use this variable IF it was set."
+        echo "Backend deployment finished."
+        echo "Function URL: ${{ steps.get_url.outputs.url }}"
+        echo "Repository variable 'ECKO_BACKEND_URL' should now be set."
+        echo "The frontend deployment workflow will use this variable."
         echo "======================================================================="
