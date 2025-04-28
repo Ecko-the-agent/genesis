@@ -9,20 +9,21 @@ on:
       - '.github/workflows/deploy-frontend.yml'
   workflow_dispatch: # Allow manual trigger
 
-# --- Permissions ορισμένα σε επίπεδο Workflow ---
-permissions:
-  contents: read
-  pages: write      # Needed for GitHub Pages deployment
-  id-token: write   # Needed for GitHub Pages deployment (OIDC)
-  variables: read   # Needed to read ECKO_BACKEND_URL variable
+# ΟΧΙ top-level permissions εδώ
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # --- ΟΧΙ permissions block εδώ πλέον ---
+    # --- Permissions ορισμένα ΕΔΩ, μέσα στο job ---
+    permissions:
+      contents: read
+      pages: write      # Needed for GitHub Pages deployment
+      id-token: write   # Needed for GitHub Pages deployment (OIDC)
+      variables: read   # Needed to read ECKO_BACKEND_URL variable
+    # --- Το environment ακολουθεί ---
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }} # Gets the deployment URL after completion
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
