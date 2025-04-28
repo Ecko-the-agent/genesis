@@ -1,0 +1,67 @@
+# .github/workflows/deploy-frontend.yml
+name: Deploy Ecko Frontend (Genesis 2.0)
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      # ===> Confirmation: Correct paths trigger the workflow <===
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: read
+  # ===> Confirmation: Correct permissions are set <===
+  pages: write      # Needed for GitHub Pages deployment
+  id-token: write   # Needed for GitHub Pages deployment (OIDC)
+  variables: read   # Needed to read ECKO_BACKEND_URL variable
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # Gets the deployment URL after completion
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ===> Confirmation: Correct GitHub Pages setup action used <===
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      # --- Replace Backend URL Placeholder ---
+      # ===> Confirmation: Step name is descriptive <===
+      - name: Inject Backend URL into Javascript
+        run: |
+          # ===> Confirmation: Checks if the variable is set <===
+          if [ -z "${{ vars.ECKO_BACKEND_URL }}" ]; then
+            echo "Error: ECKO_BACKEND_URL variable is not set. Deploy backend first." >&2
+            exit 1
+          fi
+          # ===> Confirmation: Uses sed with correct placeholder and variable on the target file <===
+          # Use sed to replace the placeholder in ecko_script.js
+          # Using '|' as delimiter for sed to avoid issues if URL contains '/'
+          echo "Injecting backend URL: ${{ vars.ECKO_BACKEND_URL }}"
+          sed -i "s|__BACKEND_URL_PLACEHOLDER__|${{ vars.ECKO_BACKEND_URL }}|g" frontend/ecko_script.js
+          echo "Placeholder replaced in frontend/ecko_script.js"
+          # Optional: Verify replacement (prints first few lines)
+          echo "--- Verifying replacement (head of file): ---"
+          head -n 10 frontend/ecko_script.js
+          echo "--- End verification ---"
+
+      # ===> Confirmation: Uploads the correct path for Pages artifact <===
+      - name: Upload artifact
+        # Uploads the entire 'frontend' directory to be deployed by GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Specify the path to the directory containing the frontend files
+          path: './frontend'
+
+      # ===> Confirmation: Uses the correct action to deploy the Pages artifact <===
+      - name: Deploy to GitHub Pages
+        id: deployment # Give the step an ID to reference its outputs
+        uses: actions/deploy-pages@v4
+        # No specific configuration needed here unless using custom domains etc.
+        # It uses the artifact uploaded in the previous step.

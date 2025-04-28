@@ -1,0 +1,96 @@
+<!-- frontend/index.html -->
+<!DOCTYPE html>
+<html lang="el">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Genesis 2.0 - Ecko Agent</title>
+    <!-- Local FontAwesome CSS -->
+    <link rel="stylesheet" href="libs/fontawesome/css/all.min.css">
+    <!-- Local Highlight.js CSS -->
+    <link rel="stylesheet" href="libs/highlightjs/styles/github-dark.min.css">
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Password Prompt Overlay -->
+    <div id="password-overlay">
+        <div id="password-box">
+            <h2><i class="fas fa-user-secret"></i> Πρόσβαση Απαιτείται</h2>
+            <!-- Updated Text Below -->
+            <p>Εισάγετε τον κωδικό πρόσβασης για τη σύνδεση στο Monitor Panel:</p>
+            <input type="password" id="passwordInput" placeholder="Κωδικός Συνεδρίας...">
+            <button id="passwordSubmitBtn"><i class="fas fa-key"></i> Είσοδος</button>
+            <p id="passwordError" class="error-message" style="display: none;"></p>
+        </div>
+    </div>
+
+    <!-- Main App Container (Hidden until authenticated) -->
+    <div class="main-container" style="display: none;">
+        <!-- Chat Panel -->
+        <div id="chat-panel">
+            <h1><i class="fas fa-comments"></i> Ecko Chat</h1>
+            <div id="chatbox" aria-live="polite">
+                <p data-sender="Ecko"><strong>Ecko:</strong> Ecko v2.0 online. Έτοιμος για εντολές διαχείρισης.</p>
+            </div>
+            <div class="input-area">
+                <textarea id="userInput" placeholder="Εντολή ή ερώτηση... (Shift+Enter for newline)" rows="1"></textarea>
+                <button id="sendButton" title="Αποστολή"><i class="fas fa-paper-plane"></i></button>
+            </div>
+            <div id="loading-chat" class="loading-indicator" style="display: none;"></div>
+        </div>
+
+        <!-- Monitor Panel -->
+        <div id="monitor-panel">
+            <h2><i class="fas fa-chart-line"></i> Monitor Panel</h2>
+
+            <div class="monitor-section" id="files-section">
+                <h3>
+                    <i class="fas fa-folder-tree"></i> File Explorer
+                    <button class="monitor-button refresh-button" data-target="files" title="Ανανέωση Λίστας Αρχείων"><i class="fas fa-sync-alt"></i></button>
+                </h3>
+                <div id="file-explorer" class="monitor-content scrollable"></div>
+                <div id="file-loading" class="loading-indicator" style="display: none;"><i class="fas fa-spinner fa-spin"></i> Loading files...</div>
+            </div>
+
+            <div class="monitor-section" id="content-section">
+                 <h3><i class="fas fa-file-code"></i> File Content <span id="current-file-indicator"></span></h3>
+                 <div id="file-content-display" class="monitor-content scrollable code-display">
+                     <pre><code class="plaintext">(Select a file)</code></pre>
+                 </div>
+                  <div id="file-content-loading" class="loading-indicator" style="display: none;"><i class="fas fa-spinner fa-spin"></i> Loading content...</div>
+             </div>
+
+             <div class="monitor-section" id="logs-section">
+                 <h3><i class="fas fa-clipboard-list"></i> Logs</h3>
+                 <div class="controls">
+                     <select id="log-source-select"><option value="backend_gcf">Backend (GCF)</option><option value="frontend_deploy">Deploy Frontend</option><option value="backend_deploy">Deploy Backend</option></select>
+                     <label>Limit:</label><input type="number" id="log-limit-input" value="50" min="1" max="200">
+                     <button class="monitor-button refresh-button" data-target="logs" title="Fetch Logs"><i class="fas fa-download"></i> Fetch</button>
+                 </div>
+                 <div id="log-viewer" class="monitor-content scrollable log-display"><pre><code class="log">(Select & Fetch)</code></pre></div>
+                 <div id="log-loading" class="loading-indicator" style="display: none;"><i class="fas fa-spinner fa-spin"></i> Fetching logs...</div>
+             </div>
+
+            <div class="monitor-section" id="deploy-section">
+                 <h3><i class="fas fa-rocket"></i> Deployments</h3>
+                 <div class="controls">
+                     <button class="monitor-button deploy-button" data-target="backend" title="Trigger Backend Deploy"><i class="fas fa-server"></i> Backend</button>
+                     <button class="monitor-button deploy-button" data-target="frontend" title="Trigger Frontend Deploy"><i class="fas fa-pager"></i> Frontend</button>
+                     <button class="monitor-button refresh-button" data-target="deploy-status" title="Ανανέωση Status"><i class="fas fa-sync-alt"></i> Status</button>
+                 </div>
+                 <div id="deployment-status" class="monitor-content">
+                      <p><strong>Backend:</strong> <span id="status-backend" class="status-unknown">--</span> <a id="url-backend" href="#" target="_blank" style="display:none;" title="Run"><i class="fas fa-external-link-alt"></i></a></p>
+                      <p><strong>Frontend:</strong> <span id="status-frontend" class="status-unknown">--</span> <a id="url-frontend" href="#" target="_blank" style="display:none;" title="Run"><i class="fas fa-external-link-alt"></i></a></p>
+                 </div>
+                  <div id="deploy-loading" class="loading-indicator" style="display: none;"><i class="fas fa-spinner fa-spin"></i> Processing...</div>
+             </div>
+        </div>
+    </div>
+    <!-- Local Dependency Libraries -->
+    <script src="libs/highlightjs/highlight.min.js"></script>
+    <!-- NO bcrypt.js needed -->
+    <!-- Main Script -->
+    <script src="ecko_script.js"></script>
+</body>
+</html>

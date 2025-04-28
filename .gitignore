@@ -1,0 +1,74 @@
+# backend/.gitignore (Applies to root due to placement)
+
+# Python build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+*.egg-info/
+.eggs/
+*.egg
+dist/
+build/
+wheels/
+*.tar.gz
+*.whl
+
+# Environment directories
+.env
+.venv       # <-- Includes the virtual environment we created
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.idea/
+.vscode/
+*.sublime-*
+
+# Temporary / Backup files
+*.log
+*.tmp
+*~
+*.swp
+*.swo
+*.bak
+
+# Test outputs
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.hypothesis/
+.pytest_cache/
+pytestdebug.log
+
+# Secrets (NEVER commit these!)
+credentials*.json
+secrets*.yaml
+*.key
+*.pem
+*token*
+
+# Git temporary files from context manager (if errors occur before cleanup)
+/tmp/ecko_git_*/
+/tmp/ecko_*_repo_clone/
+
+# Vendored frontend libraries (Ensure this directory is NOT ignored)
+# frontend/libs/ # <-- Explicitly *NOT* ignored (which is the default)
