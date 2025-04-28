@@ -10,6 +10,7 @@ on:
   workflow_dispatch: # Allow manual trigger
 
 
+
 # Permissions ορίζονται πλέον μόνο σε επίπεδο job παρακάτω
 
 jobs:
